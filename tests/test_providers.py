@@ -238,3 +238,56 @@ class TestGeminiRetry:
         req = LLMRequest(user_prompt="test")
         with pytest.raises(ConnectionError, match="Gemini provider failed after 3 attempts"):
             await gemini_provider.complete(req)
+
+
+class TestMultimodalParity:
+    """Verify all providers handle image_data without crashing and format correctly."""
+
+    @pytest.mark.asyncio
+    async def test_azure_multimodal_payload(self, monkeypatch):
+        import httpx
+        import json
+        import base64
+        monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://test.openai.azure.com")
+        monkeypatch.setenv("AZURE_OPENAI_API_KEY", "test-key")
+        monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+        from services.orchestrator.config import get_settings
+        get_settings.cache_clear()
+        p = AzureProvider()
+
+        captured_body = {}
+        async def mock_post(self_client, url, content, **kwargs):
+            nonlocal captured_body
+            captured_body = json.loads(content)
+            return httpx.Response(200, json={"choices": [{"message": {"content": "ok"}}], "usage": {}}, request=httpx.Request("POST", url))
+
+        monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+        req = LLMRequest(user_prompt="view", image_data=b"img", image_mime="image/png")
+        await p.complete(req)
+
+        content = captured_body["messages"][-1]["content"]
+        assert isinstance(content, list)
+        assert content[1]["type"] == "image_url"
+        assert "base64,aW1n" in content[1]["image_url"]["url"]
+
+    @pytest.mark.asyncio
+    async def test_sk_multimodal_handover(self, monkeypatch):
+        monkeypatch.setenv("AZURE_OPENAI_API_KEY", "test")
+        monkeypatch.setenv("AZURE_OPENAI_ENDPOINT", "https://test.openai.azure.com")
+        from services.orchestrator.config import get_settings
+        get_settings.cache_clear()
+        p = SemanticKernelProvider()
+
+        # Mock SK get_chat_message_contents
+        async def mock_get_chat(*args, **kwargs):
+            from semantic_kernel.contents import ChatMessageContent
+            from semantic_kernel.contents.utils.author_role import AuthorRole
+            return [ChatMessageContent(role=AuthorRole.ASSISTANT, content="vision ok")]
+
+        # We need to mock the service
+        from semantic_kernel.connectors.ai.chat_completion_client_base import ChatCompletionClientBase
+        monkeypatch.setattr(ChatCompletionClientBase, "get_chat_message_contents", mock_get_chat)
+
+        req = LLMRequest(user_prompt="view", image_data=b"img", image_mime="image/png")
+        resp = await p.complete(req)
+        assert resp.content == "vision ok"

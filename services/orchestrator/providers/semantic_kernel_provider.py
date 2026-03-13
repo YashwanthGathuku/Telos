@@ -67,10 +67,16 @@ class SemanticKernelProvider(ProviderBase):
         if request.system_prompt:
             history.add_system_message(request.system_prompt)
 
-        # Add user string + optionally image
-        if request.image_data:
-            logger.warning("Multimodal not fully supported via SK ChatHistory yet, proceeding text-only")
-            history.add_user_message(request.user_prompt)
+        # Handle multimodal vs text-only
+        if request.image_data and request.image_mime:
+            from semantic_kernel.contents import TextContent, ImageContent
+            history.add_user_message([
+                TextContent(text=request.user_prompt),
+                ImageContent(
+                    data=request.image_data, 
+                    data_format=request.image_mime.split("/")[-1], # e.g. "png"
+                )
+            ])
         else:
             history.add_user_message(request.user_prompt)
 

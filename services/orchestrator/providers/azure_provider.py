@@ -44,7 +44,22 @@ class AzureProvider(ProviderBase):
         messages = []
         if request.system_prompt:
             messages.append({"role": "system", "content": request.system_prompt})
-        messages.append({"role": "user", "content": request.user_prompt})
+
+        if request.image_data and request.image_mime:
+            import base64
+            b64_img = base64.b64encode(request.image_data).decode()
+            messages.append({
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": request.user_prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:{request.image_mime};base64,{b64_img}"}
+                    }
+                ]
+            })
+        else:
+            messages.append({"role": "user", "content": request.user_prompt})
 
         body = {
             "messages": messages,

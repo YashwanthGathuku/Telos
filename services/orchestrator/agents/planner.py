@@ -21,15 +21,16 @@ logger = logging.getLogger("telos.agent.planner")
 _SYSTEM_PROMPT = """You are the TELOS Planner Agent. Your job is to decompose a user's desktop automation task into concrete, ordered steps.
 
 Each step must specify:
-- "agent": one of "reader", "writer", "verifier"
+- "agent": one of "reader", "writer", "verifier", "vision"
 - "action": a short description of what to do
 - "app": the target application name
-- "detail": specifics (field name, cell reference, value to look for, etc.)
+- "detail": specifics (field name, cell reference, value to look for, or what to look for on screen for vision)
 
 Return a JSON array of step objects. Nothing else.
 
 Example:
 [
+  {"agent": "vision", "action": "inspect_screen", "app": "desktop", "detail": "What applications are currently visible on the taskbar?"},
   {"agent": "reader", "action": "read_field", "app": "QuickBooks", "detail": "Q1 sales total from the Sales Summary report"},
   {"agent": "writer", "action": "write_cell", "app": "Excel", "detail": "Write the extracted value into cell B4"},
   {"agent": "verifier", "action": "verify_write", "app": "Excel", "detail": "Confirm cell B4 contains the expected value"}
