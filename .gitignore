@@ -1,0 +1,40 @@
+# TELOS generated files
+*.pyc
+__pycache__/
+*.pyo
+.env
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Rust
+uigraph/rust_engine/target/
+
+# Go
+services/scheduler/scheduler.exe
+
+# .NET
+uigraph/windows/bin/
+uigraph/windows/obj/
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/node_modules/
+apps/desktop/dist/
+
+# Database
+telos_memory_db/
+
+# IDE
+.idea/
+*.swp
+*.swo
+.vs/
+
+# Logs
+logs/
+
+# OS
+Thumbs.db
+Desktop.ini

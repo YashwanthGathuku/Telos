@@ -1,0 +1,32 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "uigraph", "uigraph", "{55DE258B-89F3-A175-74BD-9000E75CF3FE}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "windows", "windows", "{63E98C25-FBEC-41E7-6BA6-ABDBE042B6B6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TelosUIGraph", "uigraph\windows\TelosUIGraph.csproj", "{B59FFCC4-D2BB-0710-1031-784081E514D5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B59FFCC4-D2BB-0710-1031-784081E514D5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B59FFCC4-D2BB-0710-1031-784081E514D5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B59FFCC4-D2BB-0710-1031-784081E514D5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B59FFCC4-D2BB-0710-1031-784081E514D5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{63E98C25-FBEC-41E7-6BA6-ABDBE042B6B6} = {55DE258B-89F3-A175-74BD-9000E75CF3FE}
+		{B59FFCC4-D2BB-0710-1031-784081E514D5} = {63E98C25-FBEC-41E7-6BA6-ABDBE042B6B6}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {AE5C54CD-61D4-4E5F-82C7-6C469CD1F310}
+	EndGlobalSection
+EndGlobal

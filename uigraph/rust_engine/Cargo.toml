@@ -1,0 +1,15 @@
+[package]
+name = "telos-delta-engine"
+version = "0.1.0"
+edition = "2021"
+description = "TELOS UIGraph delta engine — efficient diff tracking for UI snapshots"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1.37", features = ["full"] }
+chrono = { version = "0.4", features = ["serde"] }
+axum = "0.7.5"
+base64 = "0.22.1"
+win-screenshot = "4.0.14"
+image = "0.25.1"

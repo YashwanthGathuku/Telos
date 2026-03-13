@@ -1,0 +1,36 @@
+name: telos-azure-deployment
+type: containerapp.v1
+properties:
+  environmentId: <YOUR_AZURE_CONTAINER_APP_ENV_ID>
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+    secrets:
+      - name: azure-openai-key
+        value: <YOUR_KEY>
+      - name: gemini-api-key
+        value: <YOUR_GEMINI_KEY>
+  template:
+    containers:
+      - name: orchestrator
+        image: <YOUR_REGISTRY>/telos-orchestrator:latest
+        env:
+          - name: AZURE_OPENAI_API_KEY
+            secretRef: azure-openai-key
+          - name: GEMINI_API_KEY
+            secretRef: gemini-api-key
+          - name: TELOS_PROVIDER
+            value: "azure_sk"
+          - name: AZURE_OPENAI_ENDPOINT
+            value: "https://<your-foundry-resource>.openai.azure.com/"
+          - name: AZURE_OPENAI_DEPLOYMENT
+            value: "gpt-4o"
+          - name: TELOS_MEMORY_BACKEND
+            value: "firestore"
+          - name: CAPTURE_ENGINE_HOST
+            value: "capture-engine"
+          - name: CAPTURE_ENGINE_PORT
+            value: "8084"
+      - name: capture-engine
+        image: <YOUR_REGISTRY>/telos-capture:latest
