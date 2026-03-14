@@ -34,6 +34,8 @@ telos_memory_db/
 
 # Logs
 logs/
+.codex-runtime-logs/
+*.exe~
 
 # OS
 Thumbs.db

@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using Telos.UIGraph.Windows.Models;
 using Telos.UIGraph.Windows.Services;
+using System.Collections.Concurrent;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +17,7 @@ builder.Services.AddSingleton<UIAutomationService>();
 var app = builder.Build();
 
 var uia = app.Services.GetRequiredService<UIAutomationService>();
+var previousSnapshots = new ConcurrentDictionary<string, UISnapshotDto>(StringComparer.OrdinalIgnoreCase);
 
 // Health check
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "uigraph" }));
@@ -48,8 +50,10 @@ app.MapPost("/uigraph/snapshot", async (HttpContext ctx) =>
     
     try
     {
-        var playload = new { old_snapshot = snapshot, new_snapshot = snapshot };
-        var resp = await client.PostAsJsonAsync(deltaUrl, playload);
+        previousSnapshots.TryGetValue(req.AppName, out var previousSnapshot);
+        var payload = new { old_snapshot = previousSnapshot ?? snapshot, new_snapshot = snapshot };
+        var resp = await client.PostAsJsonAsync(deltaUrl, payload);
+        previousSnapshots[req.AppName] = snapshot;
         if (resp.IsSuccessStatusCode)
         {
             var deltaResult = await resp.Content.ReadFromJsonAsync<JsonElement>();

@@ -116,6 +116,12 @@ func TestStoreDeleteJob(t *testing.T) {
 
 func TestStoreHistory(t *testing.T) {
 	store := newTestStore(t)
+	if err := store.CreateJob(Job{
+		ID: "j-1", Name: "history", Cron: "* * * * *",
+		Task: "record history", Enabled: true, CreatedAt: "2025-01-01T00:00:00Z",
+	}); err != nil {
+		t.Fatalf("CreateJob: %v", err)
+	}
 	h := JobHistory{
 		ID: "h-1", JobID: "j-1", Status: "completed",
 		Result: "ok", StartedAt: "2025-01-01T00:00:00Z", EndedAt: "2025-01-01T00:01:00Z",
@@ -164,6 +170,18 @@ func TestHealthEndpoint(t *testing.T) {
 	json.NewDecoder(resp.Body).Decode(&body)
 	if body["status"] != "ok" {
 		t.Errorf("expected status ok, got %q", body["status"])
+	}
+}
+
+func TestReadyEndpoint(t *testing.T) {
+	_, ts := testServer(t)
+	resp, err := http.Get(ts.URL + "/ready")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
 	}
 }
 
@@ -290,6 +308,97 @@ func TestJobHistory_Empty(t *testing.T) {
 	json.NewDecoder(resp.Body).Decode(&history)
 	if len(history) != 0 {
 		t.Errorf("expected empty history, got %d entries", len(history))
+	}
+}
+
+func TestTriggerJob_PersistsFailedTaskStatus(t *testing.T) {
+	store := newTestStore(t)
+	job := Job{
+		ID: "job-1", Name: "sync", Cron: "* * * * *",
+		Task: "do thing", Enabled: true, CreatedAt: "2025-01-01T00:00:00Z",
+	}
+	if err := store.CreateJob(job); err != nil {
+		t.Fatalf("CreateJob: %v", err)
+	}
+
+	orchestrator := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"task_id":"t1","status":"failed","error":"provider offline"}`))
+	}))
+	defer orchestrator.Close()
+
+	triggerJob(store, job, orchestrator.URL)
+
+	history, err := store.GetHistory(job.ID, 10)
+	if err != nil {
+		t.Fatalf("GetHistory: %v", err)
+	}
+	if len(history) != 1 {
+		t.Fatalf("expected 1 history entry, got %d", len(history))
+	}
+	if history[0].Status != "failed" {
+		t.Fatalf("expected failed history entry, got %q", history[0].Status)
+	}
+	if !strings.Contains(history[0].Error, "provider offline") {
+		t.Fatalf("expected orchestrator error to be preserved, got %q", history[0].Error)
+	}
+}
+
+func TestAuthMiddleware_RejectsUnauthorizedRequests(t *testing.T) {
+	t.Setenv("TELOS_API_TOKEN", "secret-token")
+	_, ts := testServer(t)
+
+	resp, err := http.Get(ts.URL + "/jobs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", resp.StatusCode)
+	}
+}
+
+func TestAuthMiddleware_AcceptsBearerToken(t *testing.T) {
+	t.Setenv("TELOS_API_TOKEN", "secret-token")
+	_, ts := testServer(t)
+
+	req, _ := http.NewRequest(http.MethodGet, ts.URL+"/jobs", nil)
+	req.Header.Set("Authorization", "Bearer secret-token")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestTriggerJob_ForwardsInternalToken(t *testing.T) {
+	t.Setenv("TELOS_INTERNAL_TOKEN", "internal-token")
+	store := newTestStore(t)
+	job := Job{
+		ID: "job-2", Name: "sync", Cron: "* * * * *",
+		Task: "do thing", Enabled: true, CreatedAt: "2025-01-01T00:00:00Z",
+	}
+	if err := store.CreateJob(job); err != nil {
+		t.Fatalf("CreateJob: %v", err)
+	}
+
+	var authHeader string
+	orchestrator := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader = r.Header.Get("Authorization")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"task_id":"t1","status":"completed"}`))
+	}))
+	defer orchestrator.Close()
+
+	triggerJob(store, job, orchestrator.URL)
+
+	if authHeader != "Bearer internal-token" {
+		t.Fatalf("expected internal token to be forwarded, got %q", authHeader)
 	}
 }
 

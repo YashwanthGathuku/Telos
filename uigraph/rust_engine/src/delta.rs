@@ -47,13 +47,26 @@ impl DeltaEngine {
                         element_name: el.name.clone(),
                         control_type: el.control_type.clone(),
                         old_value: None,
-                        new_value: if el.value.is_empty() { None } else { Some(el.value.clone()) },
+                        new_value: if el.value.is_empty() {
+                            None
+                        } else {
+                            Some(el.value.clone())
+                        },
                     })
                     .collect()
             }
         };
         self.previous = Some(new_snapshot);
         changes
+    }
+
+    /// Compute delta between two explicit snapshots without mutating engine state.
+    pub fn compute_delta(
+        &self,
+        old_snapshot: &UISnapshot,
+        new_snapshot: &UISnapshot,
+    ) -> Vec<UIChange> {
+        diff_elements(&old_snapshot.elements, &new_snapshot.elements)
     }
 
     /// Clear the stored previous snapshot.
@@ -205,7 +218,9 @@ mod tests {
 
         let snap2 = make_snapshot(vec![make_element("a", "A", "1")]);
         let changes = engine.compute(snap2);
-        assert!(changes.iter().any(|c| c.kind == ChangeKind::Removed && c.element_key == "b"));
+        assert!(changes
+            .iter()
+            .any(|c| c.kind == ChangeKind::Removed && c.element_key == "b"));
     }
 
     #[test]
@@ -219,7 +234,9 @@ mod tests {
             make_element("c", "C", "3"),
         ]);
         let changes = engine.compute(snap2);
-        assert!(changes.iter().any(|c| c.kind == ChangeKind::Added && c.element_key == "c"));
+        assert!(changes
+            .iter()
+            .any(|c| c.kind == ChangeKind::Added && c.element_key == "c"));
     }
 
     #[test]

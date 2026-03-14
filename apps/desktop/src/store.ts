@@ -17,7 +17,7 @@ export type TaskStatus =
   | "failed"
   | "cancelled";
 
-export type AgentRole = "planner" | "reader" | "writer" | "verifier" | "privacy";
+export type AgentRole = "planner" | "reader" | "writer" | "verifier" | "privacy" | "vision";
 
 export interface TaskStep {
   agent: AgentRole;
@@ -64,6 +64,7 @@ export interface SystemState {
     orchestrator: boolean;
     scheduler: boolean;
     uigraph: boolean;
+    capture_engine: boolean;
   };
 }
 
@@ -121,6 +122,14 @@ export const useTelosStore = create<TelosStore>((set) => ({
         const steps = [...t.steps];
         if (steps[stepIndex]) {
           steps[stepIndex] = { ...steps[stepIndex], ...update };
+        } else if ("agent" in update && update.agent) {
+          steps[stepIndex] = {
+            agent: update.agent,
+            action: "",
+            detail: "",
+            status: "pending",
+            ...update,
+          };
         }
         return { ...t, steps };
       }),

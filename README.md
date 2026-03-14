@@ -96,7 +96,8 @@ Dashboard → Shows live progress, privacy metrics, agent states
 - Python 3.11+
 - Go 1.22+
 - .NET 8 SDK
-- Rust (for Tauri build)
+- Rust (MSVC target recommended for Tauri build)
+- Visual Studio Build Tools with MSVC (`link.exe`)
 
 ### Setup
 
@@ -105,6 +106,7 @@ Dashboard → Shows live progress, privacy metrics, agent states
 git clone <repo-url> && cd telos
 cp .env.example .env
 # Edit .env with your provider credentials
+# Optional: set TELOS_API_TOKEN for protected deployments
 
 # 2. Start the orchestrator
 cd services/orchestrator
@@ -137,11 +139,29 @@ One environment variable controls which AI provider TELOS uses:
 # Azure OpenAI
 TELOS_PROVIDER=azure
 
+# Azure OpenAI via Semantic Kernel
+TELOS_PROVIDER=azure_sk
+
 # Google Gemini
 TELOS_PROVIDER=gemini
 ```
 
 Both providers implement the same contract (`ProviderBase`). No code changes required.
+
+### API Authentication
+
+Set `TELOS_API_TOKEN` to require authentication on every route except `/health` and `/ready`.
+
+```bash
+TELOS_API_TOKEN=replace-me
+```
+
+Clients can authenticate with either:
+- `Authorization: Bearer <token>`
+- `X-Telos-Api-Token: <token>`
+- `?access_token=<token>` for the SSE event stream
+
+If the scheduler must call an orchestrator with a different token, set `ORCHESTRATOR_API_TOKEN` or `TELOS_INTERNAL_TOKEN`.
 
 ## Project Structure
 
@@ -158,6 +178,7 @@ telos/
 │   │   ├── privacy/        # PII filter + egress logger
 │   │   └── providers/      # Azure + Gemini adapters
 │   └── scheduler/          # Go daemon (port 8081)
+├── deploy/                 # Docker and Azure deployment artifacts
 ├── uigraph/
 │   ├── windows/            # C# Windows UI Automation (port 8083)
 ├── tests/                  # Python test suite
@@ -173,6 +194,7 @@ TELOS is **privacy-first** by design:
 
 - **Password fields** detected by UIA are always masked as `***MASKED***`
 - **PII** (SSN, email, phone, credit card) is redacted before any LLM call
+- **Vision uploads are opt-in in strict mode** — raw screenshots are blocked unless `TELOS_ALLOW_IMAGE_EGRESS=true`
 - **Egress tracking** — every outbound API call logs destination, bytes, timestamp
 - **Local/cloud split** — visible in the dashboard's Privacy Monitor panel
 - **Audit trail** — JSONL egress log at `./logs/egress.jsonl`
@@ -188,7 +210,36 @@ pytest
 # Run Rust delta engine tests
 cd uigraph/rust_engine
 cargo test
+
+# Run Go scheduler tests
+cd ../../services/scheduler
+go test ./...
+
+# Run Go capture-engine tests
+cd ../capture_engine
+go test ./...
+
+# Build the frontend
+cd ../../apps/desktop
+npm run build
+
+# Check the Tauri backend with the Windows MSVC toolchain
+cd src-tauri
+cargo +stable-x86_64-pc-windows-msvc check --target x86_64-pc-windows-msvc
+
+# Build the desktop installer bundle
+cd ..
+npm run tauri:build:msvc
 ```
+
+## Production Readiness Checklist
+
+- Set `TELOS_API_TOKEN` and store the same bearer token in the desktop Settings panel.
+- Set `ORCHESTRATOR_API_TOKEN` for the scheduler when using a distinct internal token.
+- Keep `TELOS_ALLOW_IMAGE_EGRESS=false` unless you have approved screenshot uploads.
+- Verify `/health` and `/ready` for orchestrator, scheduler, and capture engine before demo or deployment.
+- Run `pytest`, `go test ./...`, `npm run build`, `npm run tauri:check:msvc`, and `dotnet build` on a Windows machine with the full toolchain installed.
+- Use the MSVC Rust toolchain for the Tauri app; the repo now pins `apps/desktop/src-tauri` to `x86_64-pc-windows-msvc`.
 
 ## Limitations (MVP)
 

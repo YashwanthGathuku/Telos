@@ -18,6 +18,8 @@ from services.orchestrator.models import AgentRole, LLMRequest
 from services.orchestrator.agents.base import AgentBase
 from services.orchestrator.providers.registry import get_provider
 from services.orchestrator.config import get_settings
+from services.orchestrator.privacy.egress import get_egress_logger
+from services.orchestrator.providers.provider_base import ProviderBase
 
 logger = logging.getLogger("telos.agent.vision")
 
@@ -25,11 +27,13 @@ logger = logging.getLogger("telos.agent.vision")
 class VisionAgent(AgentBase):
     """Agent that sees the screen and extracts information."""
 
-    def __init__(self) -> None:
+    def __init__(self, provider: ProviderBase | None = None) -> None:
         s = get_settings()
-        self._provider = get_provider()
+        self._provider = provider or get_provider()
         self._capture_url = f"http://{s.capture_engine_host}:{s.capture_engine_port}/capture/screen"
         self._timeout = httpx.Timeout(connect=2.0, read=10.0, write=2.0, pool=2.0)
+        self._egress = get_egress_logger()
+        self._allow_image_egress = s.telos_allow_image_egress or s.telos_privacy_mode.lower() != "strict"
 
     def role(self) -> AgentRole:
         return AgentRole.VISION
@@ -41,6 +45,14 @@ class VisionAgent(AgentBase):
         """
         detail = context.get("detail", "Describe what is on the screen.")
         logger.info("VisionAgent executing: %s", detail)
+
+        if not self._allow_image_egress:
+            return {
+                "error": (
+                    "VisionAgent blocked by privacy mode. "
+                    "Set TELOS_ALLOW_IMAGE_EGRESS=true or use a non-strict privacy mode to allow screenshot uploads."
+                )
+            }
 
         # 1. Capture screenshot from Rust engine
         try:
@@ -71,11 +83,20 @@ class VisionAgent(AgentBase):
             temperature=0.1,
             max_tokens=500,
         )
+        bytes_sent = len(prompt.encode("utf-8")) + len(image_bytes)
 
         try:
             response = await self._provider.complete(req)
+            self._egress.record(
+                destination=f"llm/{self._provider.provider_name()}",
+                bytes_sent=bytes_sent,
+                bytes_received=response.bytes_received,
+                provider=self._provider.provider_name(),
+                task_id=str(context.get("task_id", "")),
+            )
             return {
                 "value": response.content.strip(),
+                "bytes_sent": bytes_sent,
                 "bytes_received": response.bytes_received,
             }
         except Exception as exc:

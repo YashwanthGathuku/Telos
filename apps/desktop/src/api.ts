@@ -20,6 +20,45 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
   throw new Error("Not in Tauri context");
 }
 
+function getSelectedProvider(): string | null {
+  return localStorage.getItem("telos_provider");
+}
+
+function getApiToken(): string | null {
+  const token = localStorage.getItem("telos_api_token");
+  return token?.trim() ? token.trim() : null;
+}
+
+function authHeaders(): HeadersInit {
+  const token = getApiToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+function orchestratorHeaders(): HeadersInit {
+  const provider = getSelectedProvider();
+  return {
+    ...authHeaders(),
+    ...(provider ? { "X-Telos-Provider": provider } : {}),
+  };
+}
+
+function schedulerHeaders(): HeadersInit {
+  return authHeaders();
+}
+
+async function readJsonResponse<T>(resp: Response): Promise<T> {
+  const body = (await resp.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!resp.ok) {
+    const message = typeof body?.error === "string"
+      ? body.error
+      : typeof body?.detail === "string"
+        ? body.detail
+        : `HTTP ${resp.status}`;
+    throw new Error(message);
+  }
+  return body as T;
+}
+
 // ── Orchestrator API ────────────────────────────────────────────────────
 
 export async function submitTask(task: string): Promise<{
@@ -27,55 +66,67 @@ export async function submitTask(task: string): Promise<{
   status: string;
   task: string;
 }> {
+  const provider = getSelectedProvider();
+
   if (isTauri()) {
     const result = await tauriInvoke<{ task_id: string; status: string; task: string }>(
       "submit_task",
-      { task }
+      { task, provider, token: getApiToken() }
     );
     return result;
   }
 
   const resp = await fetch(`${ORCHESTRATOR_URL}/task`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...orchestratorHeaders(),
+    },
     body: JSON.stringify({ task }),
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return resp.json();
+  return readJsonResponse(resp);
 }
 
 export async function getTasks(): Promise<unknown[]> {
   if (isTauri()) {
-    return tauriInvoke<unknown[]>("get_tasks");
+    return tauriInvoke<unknown[]>("get_tasks", { token: getApiToken() });
   }
-  const resp = await fetch(`${ORCHESTRATOR_URL}/tasks`);
-  return resp.json();
+  const resp = await fetch(`${ORCHESTRATOR_URL}/tasks`, {
+    headers: orchestratorHeaders(),
+  });
+  return readJsonResponse(resp);
 }
 
 export async function getSystemState(): Promise<unknown> {
   if (isTauri()) {
-    return tauriInvoke("get_system_state");
+    return tauriInvoke("get_system_state", { provider: getSelectedProvider(), token: getApiToken() });
   }
-  const resp = await fetch(`${ORCHESTRATOR_URL}/system/state`);
-  return resp.json();
+  const resp = await fetch(`${ORCHESTRATOR_URL}/system/state`, {
+    headers: orchestratorHeaders(),
+  });
+  return readJsonResponse(resp);
 }
 
 export async function getPrivacySummary(): Promise<unknown> {
   if (isTauri()) {
-    return tauriInvoke("get_privacy_summary");
+    return tauriInvoke("get_privacy_summary", { provider: getSelectedProvider(), token: getApiToken() });
   }
-  const resp = await fetch(`${ORCHESTRATOR_URL}/privacy/summary`);
-  return resp.json();
+  const resp = await fetch(`${ORCHESTRATOR_URL}/privacy/summary`, {
+    headers: orchestratorHeaders(),
+  });
+  return readJsonResponse(resp);
 }
 
 // ── Scheduler API ───────────────────────────────────────────────────────
 
 export async function getScheduledJobs(): Promise<unknown[]> {
   if (isTauri()) {
-    return tauriInvoke<unknown[]>("get_scheduled_jobs");
+    return tauriInvoke<unknown[]>("get_scheduled_jobs", { token: getApiToken() });
   }
-  const resp = await fetch(`${SCHEDULER_URL}/jobs`);
-  return resp.json();
+  const resp = await fetch(`${SCHEDULER_URL}/jobs`, {
+    headers: schedulerHeaders(),
+  });
+  return readJsonResponse(resp);
 }
 
 // ── SSE Event Stream ────────────────────────────────────────────────────
@@ -94,7 +145,12 @@ export function connectEventStream(onEvent: EventHandler, onStatus: (connected: 
   const MAX_BACKOFF_MS = 30000;
 
   function connect() {
-    es = new EventSource(`${ORCHESTRATOR_URL}/events`);
+    const url = new URL(`${ORCHESTRATOR_URL}/events`);
+    const token = getApiToken();
+    if (token) {
+      url.searchParams.set("access_token", token);
+    }
+    es = new EventSource(url.toString());
 
     es.onopen = () => {
       backoffMs = 1000; // reset on successful connection

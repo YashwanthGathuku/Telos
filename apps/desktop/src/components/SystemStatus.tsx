@@ -12,6 +12,7 @@ export default function SystemStatus() {
     { name: "Orchestrator", port: 8080, up: systemState?.services.orchestrator ?? false },
     { name: "Scheduler", port: 8081, up: systemState?.services.scheduler ?? false },
     { name: "UIGraph", port: 8083, up: systemState?.services.uigraph ?? false },
+    { name: "Capture", port: 8084, up: systemState?.services.capture_engine ?? false },
   ];
 
   return (

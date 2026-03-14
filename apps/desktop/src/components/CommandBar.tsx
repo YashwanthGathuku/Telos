@@ -25,7 +25,7 @@ export default function CommandBar() {
     recognition.interimResults = false;
     recognition.onresult = (event: any) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
-      setCommandInput(prev => prev ? `${prev} ${transcript}` : transcript);
+      setCommandInput(commandInput ? `${commandInput} ${transcript}` : transcript);
     };
     recognition.onend = () => setIsListening(false);
     recognition.start();

@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  windows-validation:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: apps/desktop/package-lock.json
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Set up Rust
+        run: rustup default stable-x86_64-pc-windows-msvc
+
+      - name: Install orchestrator deps
+        run: python -m pip install --upgrade pip && python -m pip install -r services/orchestrator/requirements.txt -r tests/requirements-test.txt
+
+      - name: Run Python tests
+        run: python -m pytest tests -q
+
+      - name: Build desktop frontend
+        run: npm --prefix apps/desktop ci && npm --prefix apps/desktop run build
+
+      - name: Check desktop Tauri backend
+        run: npm --prefix apps/desktop run tauri:check:msvc
+
+      - name: Build UIGraph service
+        run: dotnet build uigraph/windows/TelosUIGraph.csproj
+
+      - name: Run scheduler tests
+        run: go test ./...
+        working-directory: services/scheduler
+
+      - name: Check Rust engine
+        run: cargo check
+        working-directory: uigraph/rust_engine

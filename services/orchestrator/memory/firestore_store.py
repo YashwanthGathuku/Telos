@@ -40,18 +40,32 @@ class FirestoreStore:
     def _context_ref(self):
         return self._db.collection(f"{self._collection}_context")
 
-    def save_task(self, task_id: str, task: str, status: str, result: str | None = None) -> None:
+    def save_task(
+        self,
+        task_id: str,
+        task: str,
+        status: str,
+        result: str | None = None,
+        error: str | None = None,
+    ) -> None:
         """Create or update a task document."""
-        self._tasks_ref.document(task_id).set(
-            {
-                "task_id": task_id,
-                "task": task,
-                "status": status,
-                "result": result or "",
-                "updated_at": _now_iso(),
-            },
-            merge=True,
-        )
+        doc_ref = self._tasks_ref.document(task_id)
+        existing = doc_ref.get()
+        now = _now_iso()
+        payload = {
+            "task_id": task_id,
+            "task": task,
+            "status": status,
+            "result": result or "",
+            "error": error or "",
+            "updated_at": now,
+        }
+        if not existing.exists:
+            payload["created_at"] = now
+        if status in ("completed", "failed"):
+            payload["completed_at"] = now
+
+        doc_ref.set(payload, merge=True)
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
         """Retrieve a task by ID."""

@@ -54,3 +54,11 @@ class TestMemoryStore:
         task = memory_store.get_task("t1")
         assert task["status"] == "completed"
         assert task["result"] == "done"
+
+    def test_update_task_preserves_created_at(self, memory_store):
+        memory_store.save_task("t1", "Task 1", "pending")
+        first = memory_store.get_task("t1")
+        memory_store.save_task("t1", "Task 1", "completed", "done")
+        second = memory_store.get_task("t1")
+        assert first["created_at"] == second["created_at"]
+        assert second["completed_at"] is not None

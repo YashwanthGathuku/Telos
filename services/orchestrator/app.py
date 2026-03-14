@@ -15,7 +15,6 @@ MCP port 8080. Provides:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from contextlib import asynccontextmanager
 
@@ -31,7 +30,9 @@ from services.orchestrator.router import TaskRouter
 from services.orchestrator.bus.a2a import get_bus
 from services.orchestrator.privacy.egress import get_egress_logger
 from services.orchestrator.providers.registry import get_provider
+from services.orchestrator.providers.registry import get_provider_name, provider_override
 from services.orchestrator.memory.store import get_memory
+from services.orchestrator.middleware.auth import auth_dependency
 from services.orchestrator.middleware.rate_limit import rate_limit_dependency
 
 logger = logging.getLogger("telos.app")
@@ -72,11 +73,16 @@ app.add_middleware(
 
 # ── Task Endpoints ───────────────────────────────────────────────────────
 
-@app.post("/task", dependencies=[Depends(rate_limit_dependency)])
-async def submit_task(req: TaskRequest):
+@app.post("/task", dependencies=[Depends(auth_dependency), Depends(rate_limit_dependency)])
+async def submit_task(req: TaskRequest, request: Request):
     """Submit a natural-language task for execution."""
     task_router: TaskRouter = app.state.router
-    record = await task_router.submit(req.task)
+    provider_name = request.headers.get("x-telos-provider")
+    try:
+        with provider_override(provider_name):
+            record = await task_router.submit(req.task)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
     return {
         "task_id": record.id,
         "status": record.status.value,
@@ -84,7 +90,7 @@ async def submit_task(req: TaskRequest):
     }
 
 
-@app.get("/task/{task_id}")
+@app.get("/task/{task_id}", dependencies=[Depends(auth_dependency)])
 async def get_task(task_id: str):
     """Get the status and details of a specific task."""
     task_router: TaskRouter = app.state.router
@@ -94,7 +100,7 @@ async def get_task(task_id: str):
     return record.model_dump()
 
 
-@app.get("/tasks")
+@app.get("/tasks", dependencies=[Depends(auth_dependency)])
 async def list_tasks():
     """List all active tasks."""
     task_router: TaskRouter = app.state.router
@@ -103,7 +109,7 @@ async def list_tasks():
 
 # ── SSE Event Stream ─────────────────────────────────────────────────────
 
-@app.get("/events")
+@app.get("/events", dependencies=[Depends(auth_dependency)])
 async def event_stream(request: Request):
     """Server-Sent Events stream for the mission-control dashboard."""
     bus = app.state.bus
@@ -133,14 +139,14 @@ async def event_stream(request: Request):
 
 # ── Privacy Endpoints ────────────────────────────────────────────────────
 
-@app.get("/privacy/summary")
+@app.get("/privacy/summary", dependencies=[Depends(auth_dependency)])
 async def privacy_summary():
     """Aggregate privacy / egress metrics."""
     egress = app.state.egress
     return egress.summary()
 
 
-@app.get("/privacy/egress")
+@app.get("/privacy/egress", dependencies=[Depends(auth_dependency)])
 async def privacy_egress():
     """Recent egress records."""
     egress = app.state.egress
@@ -149,50 +155,56 @@ async def privacy_egress():
 
 # ── System State ─────────────────────────────────────────────────────────
 
-@app.get("/system/state")
-async def system_state():
+@app.get("/system/state", dependencies=[Depends(auth_dependency)])
+async def system_state(request: Request):
     """Current system snapshot for the dashboard."""
     import httpx
 
     s = get_settings()
     task_router: TaskRouter = app.state.router
     egress = app.state.egress
+    provider_header = request.headers.get("x-telos-provider")
+    try:
+        active_provider_name = get_provider_name(provider_header)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
 
-    provider = get_provider()
-    provider_healthy = False
-    try:
-        provider_healthy = await provider.health_check()
-    except Exception:
-        pass
+    async def check_service(url: str) -> bool:
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(1.0)) as hc:
+                r = await hc.get(url)
+                return r.status_code == 200
+        except Exception:
+            return False
 
-    # Ping sibling services
-    scheduler_ok = False
-    uigraph_ok = False
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(2.0)) as hc:
-            r = await hc.get(f"http://{s.scheduler_host}:{s.scheduler_port}/health")
-            scheduler_ok = r.status_code == 200
-    except Exception:
-        pass
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(2.0)) as hc:
-            r = await hc.get(f"http://{s.windows_mcp_host}:{s.windows_mcp_port}/health")
-            uigraph_ok = r.status_code == 200
-    except Exception:
-        pass
+    with provider_override(provider_header):
+        provider = get_provider()
+        provider_healthy = False
+        try:
+            provider_healthy = await provider.health_check()
+        except Exception:
+            pass
+
+    scheduler_ok, uigraph_ok, capture_ok = await asyncio.gather(
+        check_service(f"http://{s.scheduler_host}:{s.scheduler_port}/health"),
+        check_service(f"http://{s.windows_mcp_host}:{s.windows_mcp_port}/health"),
+        check_service(f"http://{s.capture_engine_host}:{s.capture_engine_port}/health"),
+    )
 
     active = task_router.active_tasks()
+    total = task_router.all_tasks()
     return {
-        "provider": s.telos_provider.value,
+        "provider": active_provider_name.value,
         "provider_healthy": provider_healthy,
         "privacy_mode": s.telos_privacy_mode,
         "active_tasks": len(active),
-        "total_tasks": len(active),
+        "total_tasks": len(total),
         "egress": egress.summary(),
         "services": {
             "orchestrator": True,
             "scheduler": scheduler_ok,
             "uigraph": uigraph_ok,
+            "capture_engine": capture_ok,
         },
     }
 
@@ -204,9 +216,45 @@ async def health():
     return {"status": "ok", "service": "orchestrator"}
 
 
+@app.get("/ready")
+async def ready():
+    memory = app.state.memory
+    provider = get_provider()
+
+    memory_ok = True
+    try:
+        memory.recent_tasks(1)
+    except Exception:
+        memory_ok = False
+
+    provider_healthy = False
+    try:
+        provider_healthy = await provider.health_check()
+    except Exception:
+        provider_healthy = False
+
+    ready_state = all([
+        hasattr(app.state, "router"),
+        hasattr(app.state, "bus"),
+        hasattr(app.state, "egress"),
+        memory_ok,
+    ])
+
+    status_code = 200 if ready_state else 503
+    return JSONResponse(
+        status_code=status_code,
+        content={
+            "status": "ready" if ready_state else "degraded",
+            "service": "orchestrator",
+            "memory_ok": memory_ok,
+            "provider_healthy": provider_healthy,
+        },
+    )
+
+
 # ── Task History ─────────────────────────────────────────────────────────
 
-@app.get("/history")
+@app.get("/history", dependencies=[Depends(auth_dependency)])
 async def task_history():
     """Recent task history from the local memory store."""
     memory = app.state.memory

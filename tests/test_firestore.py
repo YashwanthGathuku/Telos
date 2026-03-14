@@ -108,3 +108,13 @@ def test_save_and_get_context(firestore_store):
 
 def test_get_nonexistent_context(firestore_store):
     assert firestore_store.get_context("missing") is None
+
+
+def test_save_task_preserves_created_at(firestore_store):
+    firestore_store.save_task("task-123", "Do something", "pending")
+    first = firestore_store.get_task("task-123")
+    firestore_store.save_task("task-123", "Do something", "completed", "ok")
+    second = firestore_store.get_task("task-123")
+
+    assert first["created_at"] == second["created_at"]
+    assert second["completed_at"]

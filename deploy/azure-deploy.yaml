@@ -1,0 +1,55 @@
+name: telos-azure-deployment
+type: containerapp.v1
+properties:
+  environmentId: <YOUR_AZURE_CONTAINER_APP_ENV_ID>
+  configuration:
+    ingress:
+      external: false
+      targetPort: 8080
+    secrets:
+      - name: azure-openai-key
+        value: <YOUR_KEY>
+      - name: gemini-api-key
+        value: <YOUR_GEMINI_KEY>
+      - name: telos-api-token
+        value: <YOUR_SHARED_API_TOKEN>
+      - name: telos-internal-token
+        value: <YOUR_INTERNAL_TOKEN>
+  template:
+    containers:
+      - name: orchestrator
+        image: <YOUR_REGISTRY>/telos-orchestrator:latest
+        env:
+          - name: AZURE_OPENAI_API_KEY
+            secretRef: azure-openai-key
+          - name: GEMINI_API_KEY
+            secretRef: gemini-api-key
+          - name: TELOS_PROVIDER
+            value: "azure_sk"
+          - name: TELOS_API_TOKEN
+            secretRef: telos-api-token
+          - name: TELOS_INTERNAL_TOKEN
+            secretRef: telos-internal-token
+          - name: AZURE_OPENAI_ENDPOINT
+            value: "https://<your-foundry-resource>.openai.azure.com/"
+          - name: AZURE_OPENAI_DEPLOYMENT
+            value: "gpt-4o"
+          - name: WINDOWS_MCP_HOST
+            value: "host.docker.internal"
+          - name: WINDOWS_MCP_PORT
+            value: "8083"
+          - name: CAPTURE_ENGINE_HOST
+            value: "host.docker.internal"
+          - name: CAPTURE_ENGINE_PORT
+            value: "8084"
+      - name: scheduler
+        image: <YOUR_REGISTRY>/telos-scheduler:latest
+        env:
+          - name: TELOS_API_TOKEN
+            secretRef: telos-api-token
+          - name: ORCHESTRATOR_API_TOKEN
+            secretRef: telos-internal-token
+          - name: ORCHESTRATOR_HOST
+            value: "127.0.0.1"
+          - name: ORCHESTRATOR_PORT
+            value: "8080"

@@ -62,6 +62,18 @@ class TestHeroFlowE2E:
                 ],
             }
         }
+        verifier_snapshot = {
+            "snapshot": {
+                "window_title": "Excel",
+                "process_name": "excel.exe",
+                "process_id": 200,
+                "elements": [
+                    {"name": "cell B4", "control_type": "Text",
+                     "value": "$142,587.00", "automation_id": "B4",
+                     "bounding_rect": {}, "children": [], "is_password": False},
+                ],
+            }
+        }
 
         with patch("services.orchestrator.router.get_bus", return_value=fresh_bus), \
              patch("services.orchestrator.router.get_provider") as mock_get_provider, \
@@ -77,10 +89,13 @@ class TestHeroFlowE2E:
 
             # Mock reader HTTP calls
             reader_client = AsyncMock()
-            reader_resp = MagicMock()
-            reader_resp.json.return_value = reader_snapshot
-            reader_resp.raise_for_status = MagicMock()
-            reader_client.post = AsyncMock(return_value=reader_resp)
+            first_read = MagicMock()
+            first_read.json.return_value = reader_snapshot
+            first_read.raise_for_status = MagicMock()
+            verify_read = MagicMock()
+            verify_read.json.return_value = verifier_snapshot
+            verify_read.raise_for_status = MagicMock()
+            reader_client.post = AsyncMock(side_effect=[first_read, verify_read])
             reader_client.__aenter__ = AsyncMock(return_value=reader_client)
             reader_client.__aexit__ = AsyncMock(return_value=False)
             MockReaderClient.return_value = reader_client
@@ -197,8 +212,9 @@ class TestHeroFlowE2E:
 
             router = TaskRouter()
             record = await router.submit("Do something")
-            # Planner falls back to a single reader step on JSONDecodeError
-            assert record.status == TaskStatus.COMPLETED
+            # Planner falls back to a single reader step on JSONDecodeError.
+            # With no extractable value, the task should now fail truthfully.
+            assert record.status == TaskStatus.FAILED
             assert len(record.steps) == 1
             assert record.steps[0].agent.value == "reader"
 
@@ -217,6 +233,38 @@ class TestHeroFlowE2E:
             record = await router.submit("Test task")
             assert record.status == TaskStatus.FAILED
             assert "Provider timeout" in (record.error or "")
+
+    @pytest.mark.asyncio
+    async def test_hero_flow_reader_error_fails_task(self, fresh_bus):
+        """Agent-layer errors must fail the task instead of being marked completed."""
+        planner_response = LLMResponse(
+            content='[{"agent":"reader","action":"read_field","app":"Notepad","detail":"Q1 sales total"}]',
+            provider=ProviderName.AZURE,
+            model="gpt-4o",
+            bytes_sent=100,
+            bytes_received=200,
+        )
+
+        with patch("services.orchestrator.router.get_bus", return_value=fresh_bus), \
+             patch("services.orchestrator.router.get_provider") as mock_get_provider:
+            mock_provider = AsyncMock()
+            mock_provider.complete = AsyncMock(return_value=planner_response)
+            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.health_check = AsyncMock(return_value=True)
+            mock_get_provider.return_value = mock_provider
+
+            router = TaskRouter()
+            router._reader.execute = AsyncMock(return_value={
+                "error": "UIGraph service unavailable",
+                "source": "unavailable",
+                "value": None,
+            })
+
+            record = await router.submit("Copy the Q1 sales total from Notepad into Excel cell B4")
+
+            assert record.status == TaskStatus.FAILED
+            assert "UIGraph service unavailable" in (record.error or "")
+            assert record.steps[0].status == TaskStatus.FAILED
 
 
 class TestCrossAppDataTransfer:
@@ -277,7 +325,7 @@ class TestCrossAppDataTransfer:
 
     @pytest.mark.asyncio
     async def test_write_failure_is_surfaced(self, fresh_bus):
-        """When writer fails, the task still completes but with failure info."""
+        """When writer fails, the task returns a failed status."""
         import httpx
 
         planner_response = LLMResponse(
@@ -323,5 +371,5 @@ class TestCrossAppDataTransfer:
             router = TaskRouter()
             record = await router.submit("Copy value from Notepad to Excel A1")
 
-            # Task still completes (writer reported failure but didn't throw)
-            assert record.status == TaskStatus.COMPLETED
+            assert record.status == TaskStatus.FAILED
+            assert "unavailable" in (record.error or "").lower()

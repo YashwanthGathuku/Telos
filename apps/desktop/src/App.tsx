@@ -33,6 +33,7 @@ import type { TaskRecord, TaskStep, SystemState, PrivacySummary, TelosEvent } fr
 
 function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsVersion, setSettingsVersion] = useState(0);
   const {
     setConnected,
     addEvent,
@@ -44,7 +45,15 @@ function App() {
   } = useTelosStore();
 
   useEffect(() => {
-    // ... preexisting effect logic unchanged...
+    const handleSettingsUpdate = () => {
+      setSettingsVersion((value) => value + 1);
+    };
+
+    window.addEventListener("telos-settings-updated", handleSettingsUpdate);
+    return () => window.removeEventListener("telos-settings-updated", handleSettingsUpdate);
+  }, []);
+
+  useEffect(() => {
     const disconnect = connectEventStream(
       (event) => {
         addEvent(event as TelosEvent);
@@ -65,6 +74,10 @@ function App() {
               updateTask(event.task_id, {
                 status: event.payload.status as TaskRecord["status"],
                 error: event.payload.error as string | undefined,
+                result: event.payload.result,
+                ...(Array.isArray(event.payload.steps) && {
+                  steps: event.payload.steps as TaskStep[],
+                }),
                 updated_at: event.timestamp,
               });
             }
@@ -75,8 +88,10 @@ function App() {
                 event.task_id,
                 event.payload.step_index as number,
                 {
+                  agent: (event.payload.agent as TaskStep["agent"]) ?? "reader",
                   status: (event.payload.status as TaskStep["status"]) ?? "executing",
                   ...(event.payload.status === "completed" && { completed_at: event.timestamp }),
+                  ...(event.payload.status === "failed" && { completed_at: event.timestamp }),
                   ...(event.payload.status === "executing" && { started_at: event.timestamp }),
                 },
               );
@@ -110,7 +125,7 @@ function App() {
       disconnect();
       clearInterval(interval);
     };
-  }, [addEvent, addTask, updateTask, updateTaskStep, updatePrivacy, setSystemState, setConnected]);
+  }, [addEvent, addTask, updateTask, updateTaskStep, updatePrivacy, setSystemState, setConnected, settingsVersion]);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-telos-bg flex flex-col">

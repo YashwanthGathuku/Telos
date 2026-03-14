@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "TELOS — Mission Control",
+        "title": "TELOS - Mission Control",
         "width": 1400,
         "height": 900,
         "resizable": true,
@@ -24,12 +24,20 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8080 http://127.0.0.1:8081 http://127.0.0.1:8083; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8080 http://127.0.0.1:8081 http://127.0.0.1:8083 http://127.0.0.1:8084; style-src 'self' 'unsafe-inline'"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
       "tooltip": "TELOS Mission Control"
     }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ]
   },
   "plugins": {
     "shell": {

@@ -14,7 +14,6 @@ This is a hackathon MVP. The following limitations are known and intentional.
 ### Cross-App Execution
 
 - **Keyword-based element matching.** The reader agent matches UI elements by keyword overlap with the task detail string. This works for simple cases but may fail on complex or ambiguous UIs.
-- **No retry on write failure.** If the writer fails to insert a value, the task completes without automatic retry.
 - **No undo support.** Writes are permanent. There is no rollback mechanism.
 
 ### Provider Integration
@@ -27,7 +26,8 @@ This is a hackathon MVP. The following limitations are known and intentional.
 
 - **Regex-based PII detection.** SSN, email, phone, and credit card patterns are detected via regex. Novel formats or non-US patterns may not be caught.
 - **No content-based PII classification.** The filter does not use NLP to identify semantic PII (e.g., names, addresses in free text).
-- **Egress log is append-only.** There is no built-in rotation or size limit on `logs/egress.jsonl`.
+- **Screenshot egress is opt-in.** In `strict` privacy mode, VisionAgent blocks raw screenshot uploads unless `TELOS_ALLOW_IMAGE_EGRESS=true`.
+- **Egress log file is append-only.** The in-memory dashboard cache is bounded, but there is no built-in rotation for `logs/egress.jsonl`.
 
 ### Scheduler
 
@@ -46,7 +46,7 @@ This is a hackathon MVP. The following limitations are known and intentional.
 
 - **UIGraph tests are mocked.** Real UIA tree walking requires a Windows desktop environment with target applications running. Integration tests mock the HTTP layer.
 - **No browser-based frontend tests.** React components are not tested with a DOM testing library in this MVP.
-- **Rust tests require GNU toolchain.** `cargo test` needs `dlltool.exe` which is part of the MinGW/GNU toolchain.
+- **Native builds need the full Windows toolchain.** Tauri/MSVC builds require Visual Studio Build Tools (`link.exe`), while GNU-target Rust tests need `dlltool.exe`.
 
 ### Architecture
 

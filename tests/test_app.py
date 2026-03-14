@@ -5,11 +5,13 @@ Uses the ASGI lifespan protocol to ensure app.state is properly
 initialized before exercising endpoints.
 """
 
+import os
 import pytest
 from contextlib import asynccontextmanager
 from httpx import AsyncClient, ASGITransport
 
 from services.orchestrator.app import app
+from services.orchestrator.config import get_settings
 
 
 @asynccontextmanager
@@ -19,6 +21,15 @@ async def lifespan_client():
     async with app.router.lifespan_context(app):
         async with AsyncClient(transport=transport, base_url="http://test") as client:
             yield client
+
+
+@pytest.fixture(autouse=True)
+def clear_settings_cache():
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
+    os.environ.pop("TELOS_API_TOKEN", None)
+    os.environ.pop("TELOS_INTERNAL_TOKEN", None)
 
 
 @pytest.mark.asyncio
@@ -83,8 +94,53 @@ async def test_system_state():
 @pytest.mark.asyncio
 async def test_submit_task_validation():
     async with lifespan_client() as client:
-        # Empty task should fail validation
         resp = await client.post("/task", json={"task": ""})
-        # Pydantic will reject because strip makes it empty, then min_length isn't set
-        # but the router should handle empty string gracefully
-        assert resp.status_code in (200, 422)
+        assert resp.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_system_state_provider_override():
+    async with lifespan_client() as client:
+        resp = await client.get("/system/state", headers={"X-Telos-Provider": "gemini"})
+        assert resp.status_code == 200
+        assert resp.json()["provider"] == "gemini"
+
+
+@pytest.mark.asyncio
+async def test_protected_routes_require_token(monkeypatch):
+    monkeypatch.setenv("TELOS_API_TOKEN", "secret-token")
+    get_settings.cache_clear()
+
+    async with lifespan_client() as client:
+        resp = await client.get("/tasks")
+        assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_protected_routes_accept_bearer_token(monkeypatch):
+    monkeypatch.setenv("TELOS_API_TOKEN", "secret-token")
+    get_settings.cache_clear()
+
+    async with lifespan_client() as client:
+        resp = await client.get("/tasks", headers={"Authorization": "Bearer secret-token"})
+        assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_query_token_is_accepted(monkeypatch):
+    monkeypatch.setenv("TELOS_API_TOKEN", "secret-token")
+    get_settings.cache_clear()
+
+    async with lifespan_client() as client:
+        resp = await client.get("/system/state?access_token=secret-token")
+        assert resp.status_code == 200
+
+
+@pytest.mark.asyncio
+async def test_ready_endpoint():
+    async with lifespan_client() as client:
+        resp = await client.get("/ready")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["service"] == "orchestrator"
+        assert data["memory_ok"] is True

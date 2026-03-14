@@ -7,9 +7,8 @@ Provides data for the privacy dashboard's egress monitor.
 
 from __future__ import annotations
 
-import json
 import logging
-import os
+from threading import Lock
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,12 +33,16 @@ class EgressLogger:
     """Append-only JSONL egress log and in-memory aggregator."""
 
     def __init__(self) -> None:
-        self._log_path = Path(get_settings().telos_egress_log)
+        settings = get_settings()
+        self._log_path = Path(settings.telos_egress_log)
         self._log_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_size = getattr(settings, "telos_egress_cache_size", 1000)
+        self._cache_size = cache_size if isinstance(cache_size, int) and cache_size > 0 else 1000
         self._records: list[EgressRecord] = []
         self._total_bytes_sent: int = 0
         self._total_bytes_received: int = 0
         self._total_calls: int = 0
+        self._lock = Lock()
 
     def record(
         self,
@@ -58,10 +61,13 @@ class EgressLogger:
             provider=provider,
             task_id=task_id,
         )
-        self._records.append(rec)
-        self._total_bytes_sent += bytes_sent
-        self._total_bytes_received += bytes_received
-        self._total_calls += 1
+        with self._lock:
+            self._records.append(rec)
+            if len(self._records) > self._cache_size:
+                self._records = self._records[-self._cache_size:]
+            self._total_bytes_sent += bytes_sent
+            self._total_bytes_received += bytes_received
+            self._total_calls += 1
 
         # Append to JSONL file
         try:
@@ -78,15 +84,17 @@ class EgressLogger:
 
     def summary(self) -> dict[str, int]:
         """Aggregate egress metrics for the dashboard."""
-        return {
-            "total_calls": self._total_calls,
-            "total_bytes_sent": self._total_bytes_sent,
-            "total_bytes_received": self._total_bytes_received,
-        }
+        with self._lock:
+            return {
+                "total_calls": self._total_calls,
+                "total_bytes_sent": self._total_bytes_sent,
+                "total_bytes_received": self._total_bytes_received,
+            }
 
     def recent(self, n: int = 20) -> list[EgressRecord]:
         """Return the most recent N egress records."""
-        return list(self._records[-n:])
+        with self._lock:
+            return list(self._records[-n:])
 
 
 # Module-level singleton

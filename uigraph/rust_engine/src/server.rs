@@ -1,10 +1,7 @@
-use axum::{
-    routing::post,
-    Router, Json,
-};
+use axum::{routing::get, routing::post, Json, Router};
+use base64::{engine::general_purpose::STANDARD, Engine as _};
 use serde::Serialize;
 use std::net::SocketAddr;
-use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 use crate::capture::capture_primary_screen;
 
@@ -21,6 +18,7 @@ struct ErrorResponse {
 /// Start the Axum HTTP server on the given port.
 pub async fn start_server(port: u16) {
     let app = Router::new()
+        .route("/health", get(handle_health))
         .route("/capture/screen", post(handle_capture))
         .route("/delta", post(handle_delta));
 
@@ -29,6 +27,13 @@ pub async fn start_server(port: u16) {
 
     let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn handle_health() -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "status": "ok",
+        "service": "capture-engine",
+    }))
 }
 
 async fn handle_capture() -> Result<Json<CaptureResponse>, Json<ErrorResponse>> {
@@ -45,7 +50,7 @@ async fn handle_capture() -> Result<Json<CaptureResponse>, Json<ErrorResponse>> 
     }
 }
 
-use crate::{DeltaEngine, UISnapshot, UIChange};
+use crate::{DeltaEngine, UIChange, UISnapshot};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -59,10 +64,11 @@ struct DeltaResponse {
     changes: Vec<UIChange>,
 }
 
-async fn handle_delta(Json(payload): Json<DeltaRequest>) -> Result<Json<DeltaResponse>, Json<ErrorResponse>> {
+async fn handle_delta(
+    Json(payload): Json<DeltaRequest>,
+) -> Result<Json<DeltaResponse>, Json<ErrorResponse>> {
     println!("Received request to compute UI delta...");
-    let mut engine = DeltaEngine::new();
+    let engine = DeltaEngine::new();
     let changes = engine.compute_delta(&payload.old_snapshot, &payload.new_snapshot);
     Ok(Json(DeltaResponse { changes }))
 }
-

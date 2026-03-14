@@ -62,9 +62,15 @@ class Settings(BaseSettings):
     # Privacy
     telos_privacy_mode: str = "strict"
     telos_egress_log: str = "./logs/egress.jsonl"
+    telos_allow_image_egress: bool = False
+    telos_egress_cache_size: int = 1000
 
     # Database
     telos_db_path: str = "./telos_memory_db/telos.db"
+
+    # API security
+    telos_api_token: str = ""
+    telos_internal_token: str = ""
 
     # Microsoft integrations
     semantic_kernel_enabled: bool = False

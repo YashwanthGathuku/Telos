@@ -16,7 +16,6 @@ from services.orchestrator.models import (
 )
 from services.orchestrator.bus.a2a import get_bus
 from services.orchestrator.providers.registry import get_provider
-from services.orchestrator.providers.provider_base import ProviderBase
 from services.orchestrator.agents.planner import PlannerAgent
 from services.orchestrator.agents.reader import ReaderAgent
 from services.orchestrator.agents.writer import WriterAgent
@@ -32,12 +31,9 @@ class TaskRouter:
     """Orchestrates task decomposition and step execution."""
 
     def __init__(self) -> None:
-        self._provider: ProviderBase = get_provider()
-        self._planner = PlannerAgent(self._provider)
         self._reader = ReaderAgent()
         self._writer = WriterAgent()
         self._verifier = VerifierAgent()
-        self._vision = VisionAgent()
         self._bus = get_bus()
         self._egress = get_egress_logger()
         self._memory = get_memory()
@@ -48,8 +44,7 @@ class TaskRouter:
         record = TaskRecord(task=task_text, status=TaskStatus.ROUTING)
         self._tasks[record.id] = record
 
-        # Save to memory
-        self._memory.save_task(record.id, task_text, record.status.value)
+        self._persist_record(record)
 
         # Emit creation event
         await self._bus.publish(TelosEvent(
@@ -65,26 +60,32 @@ class TaskRouter:
             record.status = TaskStatus.FAILED
             record.error = str(exc)
             logger.exception("Task %s failed", record.id)
+            record.privacy_summary = record.privacy_summary or PrivacySummary()
+            self._persist_record(record)
             await self._emit_status(record)
 
         return record
 
     async def _execute(self, record: TaskRecord) -> None:
         """Run planner → reader → writer → verifier pipeline."""
+        provider = get_provider()
+        planner = PlannerAgent(provider)
+        vision = VisionAgent(provider)
+
         # Step 1: Plan
         record.status = TaskStatus.ROUTING
         await self._emit_status(record)
 
-        plan_result = await self._planner.execute({"task": record.task})
+        plan_result = await planner.execute({"task": record.task})
 
         # Track egress from planning
         if "provider_usage" in plan_result:
             pu = plan_result["provider_usage"]
             self._egress.record(
-                destination=f"llm/{self._provider.provider_name()}",
+                destination=f"llm/{provider.provider_name()}",
                 bytes_sent=pu.get("bytes_sent", 0),
                 bytes_received=pu.get("bytes_received", 0),
-                provider=self._provider.provider_name(),
+                provider=provider.provider_name(),
                 task_id=record.id,
             )
 
@@ -92,6 +93,8 @@ class TaskRouter:
         if not steps:
             record.status = TaskStatus.FAILED
             record.error = plan_result.get("error", "Planner returned no steps")
+            record.privacy_summary = PrivacySummary()
+            self._persist_record(record)
             await self._emit_status(record)
             return
 
@@ -142,7 +145,8 @@ class TaskRouter:
                 result = await self._reader.execute(step_context)
                 extracted_value = result.get("value")
                 privacy.local_operations += 1
-                step.detail = f"Read: {extracted_value}"
+                if extracted_value is not None:
+                    step.detail = f"Read: {extracted_value}"
 
             elif step.agent == AgentRole.WRITER:
                 step_context["value"] = extracted_value or ""
@@ -155,13 +159,49 @@ class TaskRouter:
                 privacy.local_operations += 1
 
             elif step.agent == AgentRole.VISION:
-                result = await self._vision.execute(step_context)
+                result = await vision.execute(step_context)
                 extracted_value = result.get("value")
                 privacy.cloud_calls += 1
-                step.detail = f"Vision extracted: {extracted_value}"
+                privacy.bytes_sent += int(result.get("bytes_sent", 0))
+                privacy.bytes_received += int(result.get("bytes_received", 0))
+                if extracted_value:
+                    step.detail = f"Vision extracted: {extracted_value}"
 
             else:
                 result = {"skipped": True}
+
+            failure = self._step_failure(step, result)
+            if failure:
+                step.status = TaskStatus.FAILED
+                step.completed_at = datetime.now(timezone.utc).isoformat()
+                record.status = TaskStatus.FAILED
+                record.error = failure
+                record.result = {
+                    "failed_step": i,
+                    "agent": step.agent.value,
+                    "step_result": result,
+                }
+                record.privacy_summary = privacy
+                self._persist_record(record)
+
+                await self._bus.publish(TelosEvent(
+                    event_type=EventType.STEP_UPDATE,
+                    task_id=record.id,
+                    payload={
+                        "step_index": i,
+                        "agent": step.agent.value,
+                        "status": "failed",
+                        "result": result,
+                        "error": failure,
+                    },
+                ))
+                await self._bus.publish(TelosEvent(
+                    event_type=EventType.PRIVACY_UPDATE,
+                    task_id=record.id,
+                    payload=privacy.model_dump(),
+                ))
+                await self._emit_status(record)
+                return
 
             step.status = TaskStatus.COMPLETED
             step.completed_at = datetime.now(timezone.utc).isoformat()
@@ -178,7 +218,7 @@ class TaskRouter:
         record.privacy_summary = privacy
         record.updated_at = datetime.now(timezone.utc).isoformat()
 
-        self._memory.save_task(record.id, record.task, record.status.value, str(record.result))
+        self._persist_record(record)
 
         await self._bus.publish(TelosEvent(
             event_type=EventType.PRIVACY_UPDATE,
@@ -188,6 +228,7 @@ class TaskRouter:
         await self._emit_status(record)
 
     async def _emit_status(self, record: TaskRecord) -> None:
+        record.updated_at = datetime.now(timezone.utc).isoformat()
         await self._bus.publish(TelosEvent(
             event_type=EventType.TASK_STATUS,
             task_id=record.id,
@@ -195,11 +236,42 @@ class TaskRouter:
                 "status": record.status.value,
                 "error": record.error,
                 "updated_at": record.updated_at,
+                "result": record.result,
+                "steps": [step.model_dump() for step in record.steps],
             },
         ))
+
+    def _persist_record(self, record: TaskRecord) -> None:
+        result = None if record.result is None else str(record.result)
+        self._memory.save_task(record.id, record.task, record.status.value, result, record.error)
+
+    def _step_failure(self, step: TaskStep, result: dict[str, Any]) -> str | None:
+        error = result.get("error")
+        if error:
+            return str(error)
+
+        if step.agent == AgentRole.READER and result.get("value") in (None, ""):
+            return f"Reader could not extract a value for {step.detail or step.action}"
+
+        if step.agent == AgentRole.WRITER and not result.get("success", False):
+            return f"Writer failed for {step.detail or step.action}"
+
+        if step.agent == AgentRole.VERIFIER and not result.get("verified", False):
+            return str(result.get("reason") or "Verifier could not confirm the write")
+
+        if step.agent == AgentRole.VISION and result.get("value") in (None, ""):
+            return "Vision agent did not return a usable result"
+
+        return None
 
     def get_task(self, task_id: str) -> TaskRecord | None:
         return self._tasks.get(task_id)
 
     def active_tasks(self) -> list[TaskRecord]:
+        return [
+            task for task in self._tasks.values()
+            if task.status not in {TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.CANCELLED}
+        ]
+
+    def all_tasks(self) -> list[TaskRecord]:
         return list(self._tasks.values())

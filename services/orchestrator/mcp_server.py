@@ -10,6 +10,8 @@ import json
 import logging
 from typing import Any
 
+from services.orchestrator.providers.mcp_tools import MCPToolProvider
+
 logger = logging.getLogger("telos.mcp")
 
 
@@ -17,8 +19,7 @@ class MCPServer:
     """A lightweight pseudo-MCP server exposing orchestrator capabilities."""
 
     def __init__(self) -> None:
-        from services.orchestrator.memory.store import get_memory
-        self.memory = get_memory()
+        self.tools = MCPToolProvider()
 
     async def handle_request(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Dispatch standard MCP JSON-RPC payload."""
@@ -29,18 +30,7 @@ class MCPServer:
                 "jsonrpc": "2.0",
                 "id": payload.get("id"),
                 "result": {
-                    "tools": [
-                        {
-                            "name": "get_recent_tasks",
-                            "description": "Fetch the most recent tasks processed by TELOS.",
-                            "inputSchema": {
-                                "type": "object",
-                                "properties": {
-                                    "limit": {"type": "integer", "description": "Max tasks to return (default 10)", "default": 10}
-                                }
-                            }
-                        }
-                    ]
+                    "tools": self.tools.list_tools(),
                 }
             }
             
@@ -48,19 +38,17 @@ class MCPServer:
             params = payload.get("params", {})
             name = params.get("name")
             args = params.get("arguments", {})
-            
-            if name == "get_recent_tasks":
-                limit = args.get("limit", 10)
-                tasks = self.memory.recent_tasks(limit=limit)
-                return {
-                    "jsonrpc": "2.0",
-                    "id": payload.get("id"),
-                    "result": {
-                        "content": [{"type": "text", "text": json.dumps(tasks, indent=2)}]
-                    }
-                }
-            else:
+            tool_result = self.tools.call_tool(name, args)
+            if tool_result is None:
                 return {"jsonrpc": "2.0", "id": payload.get("id"), "error": {"code": -32601, "message": "Tool not found"}}
+
+            return {
+                "jsonrpc": "2.0",
+                "id": payload.get("id"),
+                "result": {
+                    "content": [{"type": "text", "text": json.dumps(tool_result, indent=2)}]
+                }
+            }
 
         return {"jsonrpc": "2.0", "id": payload.get("id"), "error": {"code": -32601, "message": "Method not found"}}
 

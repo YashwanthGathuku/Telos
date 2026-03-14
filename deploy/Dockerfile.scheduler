@@ -1,0 +1,16 @@
+FROM golang:1.24 AS build
+
+WORKDIR /src
+COPY services/scheduler/go.mod services/scheduler/go.sum ./services/scheduler/
+WORKDIR /src/services/scheduler
+RUN go mod download
+
+COPY services/scheduler /src/services/scheduler
+RUN go build -o /out/scheduler ./...
+
+FROM gcr.io/distroless/base-debian12
+
+WORKDIR /app
+COPY --from=build /out/scheduler /app/scheduler
+
+CMD ["/app/scheduler"]

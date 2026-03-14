@@ -16,6 +16,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -91,11 +92,26 @@ func NewStore(dbPath string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxOpenConns(1)
+	db.SetMaxIdleConns(1)
 	store := &Store{db: db}
+	if err := store.configure(); err != nil {
+		return nil, err
+	}
 	if err := store.init(); err != nil {
 		return nil, err
 	}
 	return store, nil
+}
+
+func (s *Store) configure() error {
+	_, err := s.db.Exec(`
+		PRAGMA journal_mode=WAL;
+		PRAGMA synchronous=NORMAL;
+		PRAGMA foreign_keys=ON;
+		PRAGMA busy_timeout=5000;
+	`)
+	return err
 }
 
 func (s *Store) init() error {
@@ -122,6 +138,10 @@ func (s *Store) init() error {
 		);
 	`)
 	return err
+}
+
+func (s *Store) PingContext(ctx context.Context) error {
+	return s.db.PingContext(ctx)
 }
 
 func (s *Store) CreateJob(job Job) error {
@@ -269,7 +289,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		if allowedOrigins[origin] {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Telos-Api-Token")
 			w.Header().Set("Access-Control-Max-Age", "3600")
 		}
 		if r.Method == http.MethodOptions {
@@ -278,6 +298,40 @@ func corsMiddleware(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+func authMiddleware(next http.Handler) http.Handler {
+	requiredToken := strings.TrimSpace(os.Getenv("TELOS_API_TOKEN"))
+	if requiredToken == "" {
+		return next
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/health", "/ready":
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		token := extractAuthToken(r)
+		if token != requiredToken {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "unauthorized"})
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func extractAuthToken(r *http.Request) string {
+	bearer := strings.TrimSpace(r.Header.Get("Authorization"))
+	if strings.HasPrefix(strings.ToLower(bearer), "bearer ") {
+		return strings.TrimSpace(bearer[7:])
+	}
+	if token := strings.TrimSpace(r.Header.Get("X-Telos-Api-Token")); token != "" {
+		return token
+	}
+	return strings.TrimSpace(r.URL.Query().Get("access_token"))
 }
 
 // maxBodyBytes limits POST request body size.
@@ -291,6 +345,17 @@ func setupRoutes(store *Store, orchestratorURL string) http.Handler {
 	// Health
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "service": "scheduler"})
+	})
+
+	mux.HandleFunc("GET /ready", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+
+		if err := store.PingContext(ctx); err != nil {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "degraded", "service": "scheduler", "error": err.Error()})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ready", "service": "scheduler"})
 	})
 
 	// List jobs
@@ -399,7 +464,7 @@ func setupRoutes(store *Store, orchestratorURL string) http.Handler {
 		writeJSON(w, http.StatusOK, history)
 	})
 
-	return corsMiddleware(mux)
+	return corsMiddleware(authMiddleware(mux))
 }
 
 // ── HTTP Handlers ───────────────────────────────────────────────────────
@@ -481,8 +546,27 @@ func triggerJob(store *Store, job Job, orchestratorURL string) {
 
 	client := &http.Client{Timeout: 30 * time.Second}
 	body := strings.NewReader(fmt.Sprintf(`{"task": %q}`, job.Task))
+	req, reqErr := http.NewRequest(http.MethodPost, orchestratorURL+"/task", body)
+	if reqErr != nil {
+		endedAt := time.Now().UTC().Format(time.RFC3339)
+		_ = store.UpdateJobRun(job.ID, endedAt)
+		_ = store.SaveHistory(JobHistory{
+			ID:        historyID,
+			JobID:     job.ID,
+			Status:    "failed",
+			Error:     reqErr.Error(),
+			StartedAt: startedAt,
+			EndedAt:   endedAt,
+		})
+		slog.Error("job trigger request build failed", "job_id", job.ID, "error", reqErr)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token := orchestratorAuthToken(); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
-	resp, err := client.Post(orchestratorURL+"/task", "application/json", body)
+	resp, err := client.Do(req)
 
 	endedAt := time.Now().UTC().Format(time.RFC3339)
 	if updateErr := store.UpdateJobRun(job.ID, endedAt); updateErr != nil {
@@ -501,10 +585,38 @@ func triggerJob(store *Store, job Job, orchestratorURL string) {
 		h.Error = err.Error()
 		slog.Error("job trigger failed", "job_id", job.ID, "error", err)
 	} else {
+		bodyBytes, readErr := io.ReadAll(resp.Body)
 		resp.Body.Close()
 		if resp.StatusCode < 300 {
-			h.Status = "completed"
-			slog.Info("job completed", "job_id", job.ID, "http_status", resp.StatusCode)
+			h.Result = string(bodyBytes)
+			if readErr != nil {
+				h.Status = "failed"
+				h.Error = fmt.Sprintf("failed to read orchestrator response: %v", readErr)
+				slog.Warn("job returned unreadable body", "job_id", job.ID, "error", readErr)
+			} else {
+				var taskResp struct {
+					Status string `json:"status"`
+					Error  string `json:"error"`
+				}
+				if err := json.Unmarshal(bodyBytes, &taskResp); err == nil && taskResp.Status != "" {
+					if taskResp.Status == "completed" {
+						h.Status = "completed"
+						slog.Info("job completed", "job_id", job.ID, "http_status", resp.StatusCode)
+					} else {
+						h.Status = "failed"
+						if taskResp.Error != "" {
+							h.Error = taskResp.Error
+						} else {
+							h.Error = fmt.Sprintf("task status %s", taskResp.Status)
+						}
+						slog.Warn("job completed HTTP request but task failed", "job_id", job.ID, "task_status", taskResp.Status)
+					}
+				} else {
+					h.Status = "failed"
+					h.Error = "orchestrator response missing task status"
+					slog.Warn("job completed HTTP request but response had no task status", "job_id", job.ID)
+				}
+			}
 		} else {
 			h.Status = "failed"
 			h.Error = fmt.Sprintf("HTTP %d", resp.StatusCode)
@@ -515,6 +627,15 @@ func triggerJob(store *Store, job Job, orchestratorURL string) {
 	if saveErr := store.SaveHistory(h); saveErr != nil {
 		slog.Error("failed to save history", "history_id", historyID, "error", saveErr)
 	}
+}
+
+func orchestratorAuthToken() string {
+	for _, key := range []string{"TELOS_INTERNAL_TOKEN", "ORCHESTRATOR_API_TOKEN", "TELOS_API_TOKEN"} {
+		if value := strings.TrimSpace(os.Getenv(key)); value != "" {
+			return value
+		}
+	}
+	return ""
 }
 
 func writeJSON(w http.ResponseWriter, status int, v interface{}) {

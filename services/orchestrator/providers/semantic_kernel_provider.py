@@ -98,6 +98,7 @@ class SemanticKernelProvider(ProviderBase):
             return LLMResponse(
                 content=reply or "",
                 provider=self.provider_name(),
+                model=self.deployment,
                 bytes_sent=len(request.user_prompt),
                 bytes_received=len(reply) if reply else 0,
                 usage_prompt_tokens=0,      # Requires deeper extraction from SK inner context

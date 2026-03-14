@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/kbinani/screenshot"
 )
@@ -26,15 +27,51 @@ func main() {
 	if port == "" {
 		port = "8084"
 	}
+	host := os.Getenv("CAPTURE_ENGINE_HOST")
+	if host == "" {
+		host = "127.0.0.1"
+	}
 
-	http.HandleFunc("/capture/screen", captureScreenHandler)
-	http.HandleFunc("/delta", deltaHandler) // Placeholder for delta engine API
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/ready", readyHandler)
+	mux.HandleFunc("/capture/screen", captureScreenHandler)
+	mux.HandleFunc("/delta", deltaHandler) // Placeholder for delta engine API
 
-	addr := fmt.Sprintf(":%s", port)
+	addr := fmt.Sprintf("%s:%s", host, port)
 	log.Printf("Starting Go Capture Engine on %s\n", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	server := &http.Server{
+		Addr:         addr,
+		Handler:      mux,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
+}
+
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ok", "service": "capture_engine"})
+}
+
+func readyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if screenshot.NumActiveDisplays() <= 0 {
+		sendError(w, "Active display not found", http.StatusServiceUnavailable)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "ready", "service": "capture_engine"})
 }
 
 func captureScreenHandler(w http.ResponseWriter, r *http.Request) {

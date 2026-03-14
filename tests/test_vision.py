@@ -6,6 +6,7 @@ and send them successfully to the multimodal Gemini endpoint.
 """
 
 import base64
+import asyncio
 import pytest
 from services.orchestrator.agents.vision import VisionAgent
 from services.orchestrator.models import AgentRole, LLMRequest
@@ -15,6 +16,7 @@ from services.orchestrator.models import AgentRole, LLMRequest
 def vision_agent(monkeypatch):
     monkeypatch.setenv("CAPTURE_ENGINE_HOST", "127.0.0.1")
     monkeypatch.setenv("CAPTURE_ENGINE_PORT", "8084")
+    monkeypatch.setenv("TELOS_PRIVACY_MODE", "balanced")
     from services.orchestrator.config import get_settings
     get_settings.cache_clear()
     return VisionAgent()
@@ -44,6 +46,9 @@ async def test_vision_execute_success(vision_agent, monkeypatch):
     
     # 2. Mock LLM Provider
     class MockProvider:
+        def provider_name(self):
+            return "gemini"
+
         async def complete(self, request: LLMRequest):
             assert request.image_data == b"fake_png_data"
             assert request.image_mime == "image/png"
@@ -76,3 +81,17 @@ async def test_vision_capture_failure(vision_agent, monkeypatch):
     result = await vision_agent.execute({"detail": "Find the login button"})
     assert "error" in result
     assert "failed to capture screen" in result["error"]
+
+
+def test_vision_blocked_in_strict_mode(monkeypatch):
+    monkeypatch.setenv("CAPTURE_ENGINE_HOST", "127.0.0.1")
+    monkeypatch.setenv("CAPTURE_ENGINE_PORT", "8084")
+    monkeypatch.setenv("TELOS_PRIVACY_MODE", "strict")
+    monkeypatch.delenv("TELOS_ALLOW_IMAGE_EGRESS", raising=False)
+    from services.orchestrator.config import get_settings
+    get_settings.cache_clear()
+
+    agent = VisionAgent()
+    result = asyncio.run(agent.execute({"detail": "Read the screen"}))
+    assert "error" in result
+    assert "blocked by privacy mode" in result["error"]

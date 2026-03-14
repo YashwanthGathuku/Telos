@@ -54,7 +54,10 @@ class TaskRequest(BaseModel):
         import re
         v = re.sub(r"<script[^>]*>.*?</script>", "", v, flags=re.IGNORECASE | re.DOTALL)
         v = re.sub(r"<[^>]+>", "", v)
-        return v.strip()
+        cleaned = v.strip()
+        if not cleaned:
+            raise ValueError("Task must not be empty")
+        return cleaned
 
 
 class TaskRecord(BaseModel):
