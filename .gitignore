@@ -11,8 +11,9 @@ build/
 # Rust
 uigraph/rust_engine/target/
 
-# Go
-services/scheduler/scheduler.exe
+# Go / Compiled binaries
+*.exe
+!*.exe~
 
 # .NET
 uigraph/windows/bin/

@@ -1,6 +1,6 @@
 module capture_engine
 
-go 1.25.0
+go 1.22
 
 require (
 	github.com/gen2brain/shm v0.1.0 // indirect

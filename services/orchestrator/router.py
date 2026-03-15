@@ -40,7 +40,12 @@ class TaskRouter:
         self._tasks: dict[str, TaskRecord] = {}
 
     async def submit(self, task_text: str) -> TaskRecord:
-        """Accept a new task and begin asynchronous execution."""
+        """Accept a new task and schedule background execution.
+
+        Returns the TaskRecord immediately so the HTTP handler is not
+        blocked while agents work.  The full pipeline runs as an
+        ``asyncio.Task`` and emits SSE events as it progresses.
+        """
         record = TaskRecord(task=task_text, status=TaskStatus.ROUTING)
         self._tasks[record.id] = record
 
@@ -53,7 +58,14 @@ class TaskRouter:
             payload={"task": task_text, "status": record.status.value},
         ))
 
-        # Execute the task
+        # Schedule execution in background — do NOT block the request
+        import asyncio
+        asyncio.create_task(self._execute_safe(record))
+
+        return record
+
+    async def _execute_safe(self, record: TaskRecord) -> None:
+        """Wrapper that catches all exceptions so the background task never crashes silently."""
         try:
             await self._execute(record)
         except Exception as exc:
@@ -63,8 +75,6 @@ class TaskRouter:
             record.privacy_summary = record.privacy_summary or PrivacySummary()
             self._persist_record(record)
             await self._emit_status(record)
-
-        return record
 
     async def _execute(self, record: TaskRecord) -> None:
         """Run planner → reader → writer → verifier pipeline."""

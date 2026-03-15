@@ -62,10 +62,17 @@ class GeminiProvider(ProviderBase):
         last_err: Exception | None = None
         for attempt in range(retries):
             try:
-                response = client.models.generate_content(
-                    model=self._model,
-                    contents=parts,
-                    config=config,
+                # google-genai SDK is synchronous — run in a thread so
+                # the asyncio event loop is not blocked.
+                import asyncio
+                loop = asyncio.get_event_loop()
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: client.models.generate_content(
+                        model=self._model,
+                        contents=parts,
+                        config=config,
+                    ),
                 )
                 content = response.text or ""
                 bytes_received = len(content.encode())
@@ -100,8 +107,9 @@ class GeminiProvider(ProviderBase):
             return False
         try:
             client = self._get_client()
-            # List models to verify connectivity
-            models = client.models.list()
+            import asyncio
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, lambda: client.models.list())
             return True
         except Exception:
             return False

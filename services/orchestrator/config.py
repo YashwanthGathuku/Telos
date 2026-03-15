@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
 
+    # Azure AI Foundry (hero tech for AI Dev Days hackathon)
+    azure_foundry_endpoint: str = ""
+    azure_foundry_api_key: str = ""
+    azure_foundry_model: str = ""
+
     # Google Cloud (Firestore / GCP services)
     google_cloud_project: str = ""
     firestore_collection: str = "telos_tasks"

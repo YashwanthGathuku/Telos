@@ -46,6 +46,7 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, on
               className="w-full bg-telos-bg border border-telos-border rounded px-3 py-2 text-white font-mono focus:border-telos-accent outline-none"
             >
               <option value="azure">Azure OpenAI (HTTP adapter)</option>
+              <option value="azure_foundry">Azure AI Foundry</option>
               <option value="gemini">Google Gemini (GenAI SDK)</option>
               <option value="azure_sk">Azure OpenAI (Semantic Kernel)</option>
             </select>

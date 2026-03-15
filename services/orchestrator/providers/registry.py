@@ -14,6 +14,7 @@ from services.orchestrator.providers.provider_base import ProviderBase
 from services.orchestrator.providers.azure_provider import AzureProvider
 from services.orchestrator.providers.gemini_provider import GeminiProvider
 from services.orchestrator.providers.semantic_kernel_provider import SemanticKernelProvider
+from services.orchestrator.providers.foundry_provider import FoundryProvider
 from services.orchestrator.config import get_settings
 
 
@@ -21,6 +22,7 @@ _REGISTRY: dict[ProviderName, type[ProviderBase]] = {
     ProviderName.AZURE: AzureProvider,
     ProviderName.AZURE_SK: SemanticKernelProvider,
     ProviderName.GEMINI: GeminiProvider,
+    ProviderName.AZURE_FOUNDRY: FoundryProvider,
 }
 
 _provider_override: ContextVar[ProviderName | None] = ContextVar("telos_provider_override", default=None)
