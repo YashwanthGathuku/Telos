@@ -112,7 +112,8 @@ class TestHeroFlowE2E:
 
             router = TaskRouter()
             record = await router.submit(
-                "Copy the Q1 sales total from Notepad into Excel cell B4"
+                "Copy the Q1 sales total from Notepad into Excel cell B4",
+                _await=True,
             )
 
             # Assertions
@@ -174,7 +175,8 @@ class TestHeroFlowE2E:
             router = TaskRouter()
             # Task text contains PII (email)
             await router.submit(
-                "Send the report to user@example.com in Excel"
+                "Send the report to user@example.com in Excel",
+                _await=True,
             )
 
             # The prompt sent to LLM should have PII masked
@@ -211,7 +213,7 @@ class TestHeroFlowE2E:
             MockRC.return_value = rc
 
             router = TaskRouter()
-            record = await router.submit("Do something")
+            record = await router.submit("Do something", _await=True)
             # Planner falls back to a single reader step on JSONDecodeError.
             # With no extractable value, the task should now fail truthfully.
             assert record.status == TaskStatus.FAILED
@@ -230,7 +232,7 @@ class TestHeroFlowE2E:
             mock_prov.return_value = mock_provider
 
             router = TaskRouter()
-            record = await router.submit("Test task")
+            record = await router.submit("Test task", _await=True)
             assert record.status == TaskStatus.FAILED
             assert "Provider timeout" in (record.error or "")
 
@@ -260,7 +262,7 @@ class TestHeroFlowE2E:
                 "value": None,
             })
 
-            record = await router.submit("Copy the Q1 sales total from Notepad into Excel cell B4")
+            record = await router.submit("Copy the Q1 sales total from Notepad into Excel cell B4", _await=True)
 
             assert record.status == TaskStatus.FAILED
             assert "UIGraph service unavailable" in (record.error or "")
@@ -317,7 +319,7 @@ class TestCrossAppDataTransfer:
             MockWC.return_value = wc
 
             router = TaskRouter()
-            record = await router.submit("Copy the sales figure from Notepad into Excel B4")
+            record = await router.submit("Copy the sales figure from Notepad into Excel B4", _await=True)
 
             assert record.status == TaskStatus.COMPLETED
             assert record.result["extracted_value"] == "$99,000"
@@ -369,7 +371,62 @@ class TestCrossAppDataTransfer:
             MockWC.return_value = wc
 
             router = TaskRouter()
-            record = await router.submit("Copy value from Notepad to Excel A1")
+            record = await router.submit("Copy value from Notepad to Excel A1", _await=True)
 
             assert record.status == TaskStatus.FAILED
             assert "unavailable" in (record.error or "").lower()
+
+
+class TestSSEPIIMasking:
+    """Verify PII is masked in step details that flow to SSE/frontend."""
+
+    @pytest.mark.asyncio
+    async def test_extracted_pii_masked_in_step_detail(self, fresh_bus, captured_events):
+        """When the reader extracts a value containing PII (e.g. an email),
+        the step.detail visible via SSE must have PII redacted."""
+        planner_response = LLMResponse(
+            content='[{"agent":"reader","action":"read_field","app":"App","detail":"contact info"}]',
+            provider=ProviderName.AZURE,
+            model="gpt-4o",
+            bytes_sent=100,
+            bytes_received=200,
+        )
+
+        with patch("services.orchestrator.router.get_bus", return_value=fresh_bus), \
+             patch("services.orchestrator.router.get_provider") as mock_prov, \
+             patch("services.orchestrator.agents.reader.AsyncClient") as MockRC:
+
+            mock_provider = AsyncMock()
+            mock_provider.complete = AsyncMock(return_value=planner_response)
+            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_prov.return_value = mock_provider
+
+            rc = AsyncMock()
+            resp = MagicMock()
+            resp.json.return_value = {"snapshot": {
+                "window_title": "App", "process_name": "app.exe", "process_id": 1,
+                "elements": [
+                    {"name": "contact info", "control_type": "Text",
+                     "value": "secret@example.com", "automation_id": "",
+                     "bounding_rect": {}, "children": [], "is_password": False},
+                ],
+            }}
+            resp.raise_for_status = MagicMock()
+            rc.post = AsyncMock(return_value=resp)
+            rc.__aenter__ = AsyncMock(return_value=rc)
+            rc.__aexit__ = AsyncMock(return_value=False)
+            MockRC.return_value = rc
+
+            router = TaskRouter()
+            record = await router.submit("Get the contact info from App", _await=True)
+
+            # The raw email should NOT appear in step details
+            for step in record.steps:
+                assert "secret@example.com" not in (step.detail or "")
+            # It should be redacted
+            assert "[REDACTED]" in record.steps[0].detail
+
+            # Also check SSE event payloads
+            for event in captured_events:
+                payload_str = str(event.payload)
+                assert "secret@example.com" not in payload_str

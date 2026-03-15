@@ -23,11 +23,11 @@ type ErrorResponse struct {
 }
 
 func main() {
-	port := os.Getenv("CAPTURE_ENGINE_PORT")
+	port := os.Getenv("SCREENSHOT_ENGINE_PORT")
 	if port == "" {
-		port = "8084"
+		port = "8085"
 	}
-	host := os.Getenv("CAPTURE_ENGINE_HOST")
+	host := os.Getenv("SCREENSHOT_ENGINE_HOST")
 	if host == "" {
 		host = "127.0.0.1"
 	}
@@ -36,7 +36,6 @@ func main() {
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/ready", readyHandler)
 	mux.HandleFunc("/capture/screen", captureScreenHandler)
-	mux.HandleFunc("/delta", deltaHandler) // Placeholder for delta engine API
 
 	addr := fmt.Sprintf("%s:%s", host, port)
 	log.Printf("Starting Go Capture Engine on %s\n", addr)
@@ -107,16 +106,6 @@ func captureScreenHandler(w http.ResponseWriter, r *http.Request) {
 	// Send JSON response
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(CaptureResponse{Image: b64Image})
-}
-
-// Dummy endpoint matching the Rust delta phase 2c requirements
-func deltaHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"changes": []}`))
 }
 
 func sendError(w http.ResponseWriter, msg string, code int) {

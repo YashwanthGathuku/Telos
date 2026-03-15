@@ -1,55 +1,107 @@
+# =============================================================================
+# TELOS — Azure Container Apps deployment template
+# =============================================================================
+# Usage:
+#   1. Replace every ${...} placeholder with your actual values
+#   2. Create secrets in your Azure Container App environment first:
+#      az containerapp env create -n telos-env -g <rg> -l <location>
+#   3. Deploy:
+#      az containerapp create --yaml deploy/azure-deploy.yaml -g <rg>
+#
+# NOTE: UIGraph (C#) and the Rust Delta Engine run on a Windows desktop and
+# cannot be containerised. When deploying to Azure the orchestrator connects
+# to these services via VPN / private endpoint, or you use "cloud-only" mode
+# with the VisionAgent and Foundry provider.
+# =============================================================================
 name: telos-azure-deployment
 type: containerapp.v1
 properties:
-  environmentId: <YOUR_AZURE_CONTAINER_APP_ENV_ID>
+  environmentId: ${AZURE_CONTAINER_APP_ENV_ID}
   configuration:
     ingress:
       external: false
       targetPort: 8080
+      transport: http
     secrets:
       - name: azure-openai-key
-        value: <YOUR_KEY>
+        value: ${AZURE_OPENAI_API_KEY}
+      - name: azure-foundry-key
+        value: ${AZURE_FOUNDRY_API_KEY}
       - name: gemini-api-key
-        value: <YOUR_GEMINI_KEY>
+        value: ${GEMINI_API_KEY}
       - name: telos-api-token
-        value: <YOUR_SHARED_API_TOKEN>
+        value: ${TELOS_API_TOKEN}
       - name: telos-internal-token
-        value: <YOUR_INTERNAL_TOKEN>
+        value: ${TELOS_INTERNAL_TOKEN}
   template:
     containers:
       - name: orchestrator
-        image: <YOUR_REGISTRY>/telos-orchestrator:latest
+        image: ${ACR_REGISTRY}/telos-orchestrator:latest
+        resources:
+          cpu: 0.5
+          memory: 1Gi
         env:
           - name: AZURE_OPENAI_API_KEY
             secretRef: azure-openai-key
+          - name: AZURE_FOUNDRY_API_KEY
+            secretRef: azure-foundry-key
           - name: GEMINI_API_KEY
             secretRef: gemini-api-key
           - name: TELOS_PROVIDER
-            value: "azure_sk"
+            value: "azure_foundry"
           - name: TELOS_API_TOKEN
             secretRef: telos-api-token
           - name: TELOS_INTERNAL_TOKEN
             secretRef: telos-internal-token
           - name: AZURE_OPENAI_ENDPOINT
-            value: "https://<your-foundry-resource>.openai.azure.com/"
+            value: ${AZURE_OPENAI_ENDPOINT}
           - name: AZURE_OPENAI_DEPLOYMENT
             value: "gpt-4o"
+          - name: AZURE_FOUNDRY_ENDPOINT
+            value: ${AZURE_FOUNDRY_ENDPOINT}
+          - name: AZURE_FOUNDRY_MODEL
+            value: "gpt-4o"
+          # In Azure, UIA services run on the Windows host via VPN
           - name: WINDOWS_MCP_HOST
-            value: "host.docker.internal"
+            value: ${WINDOWS_HOST_IP}
           - name: WINDOWS_MCP_PORT
             value: "8083"
-          - name: CAPTURE_ENGINE_HOST
-            value: "host.docker.internal"
-          - name: CAPTURE_ENGINE_PORT
+          - name: SCREENSHOT_ENGINE_HOST
+            value: ${WINDOWS_HOST_IP}
+          - name: SCREENSHOT_ENGINE_PORT
+            value: "8085"
+          - name: DELTA_ENGINE_HOST
+            value: ${WINDOWS_HOST_IP}
+          - name: DELTA_ENGINE_PORT
             value: "8084"
+        probes:
+          - type: liveness
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          - type: readiness
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 3
+            periodSeconds: 10
+
       - name: scheduler
-        image: <YOUR_REGISTRY>/telos-scheduler:latest
+        image: ${ACR_REGISTRY}/telos-scheduler:latest
+        resources:
+          cpu: 0.25
+          memory: 0.5Gi
         env:
           - name: TELOS_API_TOKEN
             secretRef: telos-api-token
           - name: ORCHESTRATOR_API_TOKEN
             secretRef: telos-internal-token
           - name: ORCHESTRATOR_HOST
-            value: "127.0.0.1"
+            value: "localhost"
           - name: ORCHESTRATOR_PORT
             value: "8080"
+    scale:
+      minReplicas: 1
+      maxReplicas: 1

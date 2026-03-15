@@ -1,7 +1,7 @@
 """
 TELOS Vision Agent — screen capture and multimodal interpretation.
 
-Fetches a screenshot from the Rust capture engine, then sends it to
+Fetches a screenshot from the Go screenshot engine (port 8085), then sends it to
 the configured LLM provider (using multimodal capabilities) to extract
 information or summarize the screen state.
 """
@@ -30,7 +30,7 @@ class VisionAgent(AgentBase):
     def __init__(self, provider: ProviderBase | None = None) -> None:
         s = get_settings()
         self._provider = provider or get_provider()
-        self._capture_url = f"http://{s.capture_engine_host}:{s.capture_engine_port}/capture/screen"
+        self._capture_url = f"http://{s.screenshot_engine_host}:{s.screenshot_engine_port}/capture/screen"
         self._timeout = httpx.Timeout(connect=2.0, read=10.0, write=2.0, pool=2.0)
         self._egress = get_egress_logger()
         self._allow_image_egress = s.telos_allow_image_egress or s.telos_privacy_mode.lower() != "strict"
@@ -62,7 +62,7 @@ class VisionAgent(AgentBase):
                 data = resp.json()
                 base64_png = data.get("image")
                 if not base64_png:
-                    raise ValueError("Rust engine returned empty image")
+                    raise ValueError("Screenshot engine returned empty image")
                 image_bytes = base64.b64decode(base64_png)
         except Exception as exc:
             msg = f"VisionAgent failed to capture screen: {exc}"

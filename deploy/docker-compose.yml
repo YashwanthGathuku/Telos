@@ -19,8 +19,10 @@ services:
       TELOS_ALLOW_IMAGE_EGRESS: ${TELOS_ALLOW_IMAGE_EGRESS:-false}
       WINDOWS_MCP_HOST: host.docker.internal
       WINDOWS_MCP_PORT: 8083
-      CAPTURE_ENGINE_HOST: host.docker.internal
-      CAPTURE_ENGINE_PORT: 8084
+      SCREENSHOT_ENGINE_HOST: host.docker.internal
+      SCREENSHOT_ENGINE_PORT: 8085
+      DELTA_ENGINE_HOST: host.docker.internal
+      DELTA_ENGINE_PORT: 8084
     extra_hosts:
       - "host.docker.internal:host-gateway"
 

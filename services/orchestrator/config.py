@@ -60,9 +60,13 @@ class Settings(BaseSettings):
     windows_mcp_host: str = "127.0.0.1"
     windows_mcp_port: int = 8083
 
-    # Rust Capture Engine
-    capture_engine_host: str = "127.0.0.1"
-    capture_engine_port: int = 8084
+    # Go Screenshot Engine (screenshot capture)
+    screenshot_engine_host: str = "127.0.0.1"
+    screenshot_engine_port: int = 8085
+
+    # Rust Delta Engine (visual diff)
+    delta_engine_host: str = "127.0.0.1"
+    delta_engine_port: int = 8084
 
     # Privacy
     telos_privacy_mode: str = "strict"

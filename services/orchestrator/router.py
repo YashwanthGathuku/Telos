@@ -22,9 +22,24 @@ from services.orchestrator.agents.writer import WriterAgent
 from services.orchestrator.agents.verifier import VerifierAgent
 from services.orchestrator.agents.vision import VisionAgent
 from services.orchestrator.privacy.egress import get_egress_logger
+from services.orchestrator.privacy.filter import mask_pii
 from services.orchestrator.memory.store import get_memory
 
 logger = logging.getLogger("telos.router")
+
+
+def _sanitize_for_sse(result: dict[str, Any]) -> dict[str, Any]:
+    """Remove raw PII from result dicts before they appear in SSE payloads."""
+    sanitized = {}
+    for key, val in result.items():
+        if isinstance(val, str):
+            cleaned, _, _ = mask_pii(val)
+            sanitized[key] = cleaned
+        elif isinstance(val, dict):
+            sanitized[key] = _sanitize_for_sse(val)
+        else:
+            sanitized[key] = val
+    return sanitized
 
 
 class TaskRouter:
@@ -39,12 +54,15 @@ class TaskRouter:
         self._memory = get_memory()
         self._tasks: dict[str, TaskRecord] = {}
 
-    async def submit(self, task_text: str) -> TaskRecord:
+    async def submit(self, task_text: str, *, _await: bool = False) -> TaskRecord:
         """Accept a new task and schedule background execution.
 
         Returns the TaskRecord immediately so the HTTP handler is not
         blocked while agents work.  The full pipeline runs as an
         ``asyncio.Task`` and emits SSE events as it progresses.
+
+        When ``_await=True`` the execution runs inline (used by tests
+        so mocked providers remain active during the pipeline).
         """
         record = TaskRecord(task=task_text, status=TaskStatus.ROUTING)
         self._tasks[record.id] = record
@@ -58,9 +76,13 @@ class TaskRouter:
             payload={"task": task_text, "status": record.status.value},
         ))
 
-        # Schedule execution in background — do NOT block the request
-        import asyncio
-        asyncio.create_task(self._execute_safe(record))
+        if _await:
+            # Run inline — keeps caller's mock/patch context active
+            await self._execute_safe(record)
+        else:
+            # Schedule execution in background — do NOT block the request
+            import asyncio
+            asyncio.create_task(self._execute_safe(record))
 
         return record
 
@@ -156,7 +178,8 @@ class TaskRouter:
                 extracted_value = result.get("value")
                 privacy.local_operations += 1
                 if extracted_value is not None:
-                    step.detail = f"Read: {extracted_value}"
+                    safe_value, _, _ = mask_pii(str(extracted_value))
+                    step.detail = f"Read: {safe_value}"
 
             elif step.agent == AgentRole.WRITER:
                 step_context["value"] = extracted_value or ""
@@ -175,7 +198,8 @@ class TaskRouter:
                 privacy.bytes_sent += int(result.get("bytes_sent", 0))
                 privacy.bytes_received += int(result.get("bytes_received", 0))
                 if extracted_value:
-                    step.detail = f"Vision extracted: {extracted_value}"
+                    safe_value, _, _ = mask_pii(str(extracted_value))
+                    step.detail = f"Vision extracted: {safe_value}"
 
             else:
                 result = {"skipped": True}
@@ -201,7 +225,7 @@ class TaskRouter:
                         "step_index": i,
                         "agent": step.agent.value,
                         "status": "failed",
-                        "result": result,
+                        "result": _sanitize_for_sse(result),
                         "error": failure,
                     },
                 ))
@@ -219,7 +243,7 @@ class TaskRouter:
             await self._bus.publish(TelosEvent(
                 event_type=EventType.STEP_UPDATE,
                 task_id=record.id,
-                payload={"step_index": i, "agent": step.agent.value, "status": "completed", "result": result},
+                payload={"step_index": i, "agent": step.agent.value, "status": "completed", "result": _sanitize_for_sse(result)},
             ))
 
         # Finalize
@@ -239,6 +263,8 @@ class TaskRouter:
 
     async def _emit_status(self, record: TaskRecord) -> None:
         record.updated_at = datetime.now(timezone.utc).isoformat()
+        # Sanitize result before it flows to SSE/frontend
+        safe_result = _sanitize_for_sse(record.result) if isinstance(record.result, dict) else record.result
         await self._bus.publish(TelosEvent(
             event_type=EventType.TASK_STATUS,
             task_id=record.id,
@@ -246,7 +272,7 @@ class TaskRouter:
                 "status": record.status.value,
                 "error": record.error,
                 "updated_at": record.updated_at,
-                "result": record.result,
+                "result": safe_result,
                 "steps": [step.model_dump() for step in record.steps],
             },
         ))

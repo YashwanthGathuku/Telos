@@ -16,14 +16,3 @@ func TestHealthHandler(t *testing.T) {
 		t.Fatalf("expected 200, got %d", rec.Code)
 	}
 }
-
-func TestDeltaHandlerRejectsWrongMethod(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/delta", nil)
-	rec := httptest.NewRecorder()
-
-	deltaHandler(rec, req)
-
-	if rec.Code != http.StatusMethodNotAllowed {
-		t.Fatalf("expected 405, got %d", rec.Code)
-	}
-}

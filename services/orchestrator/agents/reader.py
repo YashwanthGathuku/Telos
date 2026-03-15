@@ -16,6 +16,7 @@ from httpx import AsyncClient
 from services.orchestrator.agents.base import AgentBase
 from services.orchestrator.models import AgentRole, UISnapshot
 from services.orchestrator.config import get_settings
+from services.orchestrator.privacy.egress import get_egress_logger
 
 logger = logging.getLogger("telos.agent.reader")
 
@@ -37,17 +38,29 @@ class ReaderAgent(AgentBase):
             return {"error": "No target application specified"}
 
         s = get_settings()
+        egress = get_egress_logger()
         base_url = f"http://{s.windows_mcp_host}:{s.windows_mcp_port}"
 
         try:
             async with AsyncClient(timeout=_TIMEOUT) as client:
                 # Request UI snapshot from the Windows MCP service
+                payload = {"app_name": app_name, "detail": field_detail}
+                bytes_sent = len(str(payload).encode("utf-8"))
                 resp = await client.post(
                     f"{base_url}/uigraph/snapshot",
-                    json={"app_name": app_name, "detail": field_detail},
+                    json=payload,
                 )
                 resp.raise_for_status()
                 data = resp.json()
+                bytes_received = len(resp.content)
+
+                egress.record(
+                    destination=f"uigraph/{s.windows_mcp_host}:{s.windows_mcp_port}",
+                    bytes_sent=bytes_sent,
+                    bytes_received=bytes_received,
+                    provider="uigraph",
+                    task_id=str(context.get("task_id", "")),
+                )
 
                 snapshot = UISnapshot(**data.get("snapshot", data))
                 # Search for the relevant value in the UI tree

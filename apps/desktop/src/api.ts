@@ -21,11 +21,11 @@ async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Prom
 }
 
 function getSelectedProvider(): string | null {
-  return localStorage.getItem("telos_provider");
+  return sessionStorage.getItem("telos_provider");
 }
 
 function getApiToken(): string | null {
-  const token = localStorage.getItem("telos_api_token");
+  const token = sessionStorage.getItem("telos_api_token");
   return token?.trim() ? token.trim() : null;
 }
 

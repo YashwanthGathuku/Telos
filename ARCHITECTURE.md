@@ -72,12 +72,20 @@ Windows UI Automation integration service. Capabilities:
 ### D. Capture Engine (Go)
 
 **Location:** `services/capture_engine/`
+**Port:** 8085 (env: `SCREENSHOT_ENGINE_PORT`)
 
-Efficient UI snapshot diffing and full screen captures. Used directly by the Vision Agent:
-- `/capture/screen` — returns base64 png of primary display
-- `/delta` — compares successive UI snapshots to omit redundant payloads
+High-speed screenshot capture for multimodal vision input:
+- `/capture/screen` — returns base64 PNG of the primary display
+- `/health` / `/ready` — service health indicators
 
-Allows vision input alongside traditional UIA tree parsing for richer multimodal integration.
+### D2. Delta Engine (Rust)
+
+**Location:** `uigraph/rust_engine/`
+**Port:** 8084 (env: `DELTA_ENGINE_PORT`)
+
+Visual diff / snapshot analysis engine:
+- `/delta` — compares successive UI snapshots to detect changes
+- Used by the C# UIGraph service and VisionAgent for intelligent change detection
 
 ### E. Scheduler (Go)
 
@@ -115,11 +123,12 @@ class ProviderBase(ABC):
     def provider_name(self) -> str: ...
 ```
 
-- `AzureProvider` — Supports Azure OpenAI chat completions
-- `SemanticKernelProvider` — Fulfills Microsoft Hackathon requirements via the `semantic-kernel` SDK
-- `GeminiProvider` — Uses the official `google-genai` SDK
+- `AzureProvider` — Azure OpenAI chat completions via raw httpx
+- `SemanticKernelProvider` — Azure OpenAI via Microsoft `semantic-kernel` SDK (hackathon hero tech)
+- `FoundryProvider` — Azure AI Foundry project endpoints (hackathon hero tech)
+- `GeminiProvider` — Google Gemini via official `google-genai` SDK
 
-Provider selection: `TELOS_PROVIDER=azure|azure_sk|gemini` environment variable.
+Provider selection: `TELOS_PROVIDER=azure|azure_sk|azure_foundry|gemini` environment variable.
 Both providers use `httpx.AsyncClient` with explicit 30-second timeouts and 3-retry exponential backoff.
 
 ## Privacy Architecture

@@ -66,8 +66,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:1420", "http://127.0.0.1:1420", "tauri://localhost"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Authorization", "Content-Type", "X-Telos-Provider", "X-Telos-Api-Token"],
 )
 
 
@@ -185,10 +185,11 @@ async def system_state(request: Request):
         except Exception:
             pass
 
-    scheduler_ok, uigraph_ok, capture_ok = await asyncio.gather(
+    scheduler_ok, uigraph_ok, screenshot_ok, delta_ok = await asyncio.gather(
         check_service(f"http://{s.scheduler_host}:{s.scheduler_port}/health"),
         check_service(f"http://{s.windows_mcp_host}:{s.windows_mcp_port}/health"),
-        check_service(f"http://{s.capture_engine_host}:{s.capture_engine_port}/health"),
+        check_service(f"http://{s.screenshot_engine_host}:{s.screenshot_engine_port}/health"),
+        check_service(f"http://{s.delta_engine_host}:{s.delta_engine_port}/health"),
     )
 
     active = task_router.active_tasks()
@@ -204,7 +205,8 @@ async def system_state(request: Request):
             "orchestrator": True,
             "scheduler": scheduler_ok,
             "uigraph": uigraph_ok,
-            "capture_engine": capture_ok,
+            "capture_engine": screenshot_ok,
+            "delta_engine": delta_ok,
         },
     }
 

@@ -117,7 +117,7 @@ python -m services.orchestrator
 cd services/scheduler
 go run main.go
 
-# 4. Start the Capture Engine (Go)
+# 4. Start the Capture Engine (Go — port 8085)
 cd services/capture_engine
 go run main.go
 
@@ -172,17 +172,19 @@ telos/
 │   └── src-tauri/          # Rust Tauri backend
 ├── services/
 │   ├── orchestrator/       # Python FastAPI (port 8080)
-│   │   ├── agents/         # Planner, Reader, Writer, Verifier
+│   │   ├── agents/         # Planner, Reader, Writer, Verifier, Vision
 │   │   ├── bus/            # A2A event bus
-│   │   ├── memory/         # SQLite local memory
+│   │   ├── memory/         # SQLite / Firestore memory
 │   │   ├── privacy/        # PII filter + egress logger
-│   │   └── providers/      # Azure + Gemini adapters
-│   └── scheduler/          # Go daemon (port 8081)
+│   │   └── providers/      # Azure, Gemini, SK, Foundry adapters
+│   ├── scheduler/          # Go daemon (port 8081)
+│   └── capture_engine/     # Go screenshot service (port 8085)
 ├── deploy/                 # Docker and Azure deployment artifacts
 ├── uigraph/
 │   ├── windows/            # C# Windows UI Automation (port 8083)
-├── tests/                  # Python test suite
-├── docs/                   # Architecture and demo docs
+│   └── rust_engine/        # Rust visual delta engine (port 8084)
+├── tests/                  # Python test suite (146 tests)
+├── docs/                   # Architecture, setup, and hackathon docs
 ├── .env.example            # Configuration template
 ├── ARCHITECTURE.md         # Detailed architecture document
 └── README.md               # This file
@@ -245,6 +247,37 @@ npm run tauri:build:msvc
 
 - UIGraph integration requires target applications to have UIA support
 - Hero demo path uses Notepad/Excel as substitutes when QuickBooks is unavailable
+- Semantic Kernel provider does not yet surface token-level usage metrics (byte-level tracking is accurate)
+- Firestore backend requires manual composite index creation (see docs/SETUP.md)
+
+## Microsoft AI Dev Day Hackathon
+
+TELOS targets the **AI Agent using Microsoft Agent Framework** category.
+
+### Technologies Used
+
+| Microsoft Technology | Where in Code |
+|---------------------|---------------|
+| **Semantic Kernel** (`semantic-kernel` SDK) | `services/orchestrator/providers/semantic_kernel_provider.py` |
+| **Azure AI Foundry** | `services/orchestrator/providers/foundry_provider.py` |
+| **Azure OpenAI** | `services/orchestrator/providers/azure_provider.py` |
+| **Model Context Protocol (MCP)** | `services/orchestrator/mcp_server.py` |
+| **Azure Container Apps** | `deploy/azure-deploy.yaml` |
+| **GitHub Copilot Agent Mode** | `.github/copilot-instructions.md` |
+| **VS Code** | Primary development environment |
+
+See [docs/HACKATHON_TECH_MAP.md](docs/HACKATHON_TECH_MAP.md) for detailed requirement mapping with file-level evidence.
+
+### How GitHub Copilot Agent Mode Was Used
+
+TELOS was developed using GitHub Copilot Agent Mode in VS Code as the primary AI-assisted development workflow:
+- **Code generation**: Agent mode generated the polyglot service implementations across Python, Go, Rust, C#, and TypeScript
+- **Code review**: Agent mode performed deep security/privacy audits and identified PII leakage in SSE payloads
+- **Test authoring**: E2E hero tests and privacy masking tests were co-authored with Copilot
+- **Architecture hardening**: Agent mode identified port conflicts, CORS issues, and deployment misconfigurations
+- **Documentation**: Hackathon tech mapping, architecture docs, and this README were reviewed/improved with Copilot
+
+The `.github/copilot-instructions.md` file contains project-specific instructions that guide Copilot Agent Mode to maintain TELOS's privacy-first, Windows-first, polyglot engineering standards.
 
 ## License
 

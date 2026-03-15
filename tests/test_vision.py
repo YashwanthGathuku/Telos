@@ -1,7 +1,7 @@
 """
 TELOS Tests — VisionAgent tests.
 
-Verifies the VisionAgent can capture screenshots from the Rust engine
+Verifies the VisionAgent can capture screenshots from the Go screenshot engine
 and send them successfully to the multimodal Gemini endpoint.
 """
 
@@ -14,8 +14,8 @@ from services.orchestrator.models import AgentRole, LLMRequest
 
 @pytest.fixture
 def vision_agent(monkeypatch):
-    monkeypatch.setenv("CAPTURE_ENGINE_HOST", "127.0.0.1")
-    monkeypatch.setenv("CAPTURE_ENGINE_PORT", "8084")
+    monkeypatch.setenv("SCREENSHOT_ENGINE_HOST", "127.0.0.1")
+    monkeypatch.setenv("SCREENSHOT_ENGINE_PORT", "8085")
     monkeypatch.setenv("TELOS_PRIVACY_MODE", "balanced")
     from services.orchestrator.config import get_settings
     get_settings.cache_clear()
@@ -30,7 +30,7 @@ def test_vision_role(vision_agent):
 async def test_vision_execute_success(vision_agent, monkeypatch):
     import httpx
     
-    # 1. Mock Rust capture engine
+    # 1. Mock Go screenshot engine
     fake_png = base64.b64encode(b"fake_png_data").decode()
     
     async def mock_post(self_client, url, **kwargs):
@@ -84,8 +84,8 @@ async def test_vision_capture_failure(vision_agent, monkeypatch):
 
 
 def test_vision_blocked_in_strict_mode(monkeypatch):
-    monkeypatch.setenv("CAPTURE_ENGINE_HOST", "127.0.0.1")
-    monkeypatch.setenv("CAPTURE_ENGINE_PORT", "8084")
+    monkeypatch.setenv("SCREENSHOT_ENGINE_HOST", "127.0.0.1")
+    monkeypatch.setenv("SCREENSHOT_ENGINE_PORT", "8085")
     monkeypatch.setenv("TELOS_PRIVACY_MODE", "strict")
     monkeypatch.delenv("TELOS_ALLOW_IMAGE_EGRESS", raising=False)
     from services.orchestrator.config import get_settings

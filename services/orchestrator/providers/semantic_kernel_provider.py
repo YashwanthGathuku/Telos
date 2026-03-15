@@ -101,7 +101,10 @@ class SemanticKernelProvider(ProviderBase):
                 model=self.deployment,
                 bytes_sent=len(request.user_prompt),
                 bytes_received=len(reply) if reply else 0,
-                usage_prompt_tokens=0,      # Requires deeper extraction from SK inner context
+                # Semantic Kernel does not surface prompt/completion token counts
+                # in chat_message_contents. Byte-level tracking above is accurate;
+                # token-level fields are left at 0 pending SK SDK improvements.
+                usage_prompt_tokens=0,
                 usage_completion_tokens=0,
             )
 

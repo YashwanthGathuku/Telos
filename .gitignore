@@ -41,3 +41,18 @@ logs/
 # OS
 Thumbs.db
 Desktop.ini
+
+# Scratch / test output
+test_output.txt
+
+# Python virtual environments
+.venv/
+venv/
+env/
+
+# Pytest cache
+.pytest_cache/
+
+# Nested DB/log dirs (scheduler and other services)
+services/scheduler/telos_memory_db/
+services/scheduler/logs/

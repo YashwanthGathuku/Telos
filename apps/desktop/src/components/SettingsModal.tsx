@@ -6,17 +6,17 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, on
   const [apiToken, setApiToken] = useState("");
   
   useEffect(() => {
-    const saved = localStorage.getItem("telos_provider");
+    const saved = sessionStorage.getItem("telos_provider");
     if (saved) setProvider(saved);
-    setApiToken(localStorage.getItem("telos_api_token") ?? "");
+    setApiToken(sessionStorage.getItem("telos_api_token") ?? "");
   }, [isOpen]);
 
   const handleSave = () => {
-    localStorage.setItem("telos_provider", provider);
+    sessionStorage.setItem("telos_provider", provider);
     if (apiToken.trim()) {
-      localStorage.setItem("telos_api_token", apiToken.trim());
+      sessionStorage.setItem("telos_api_token", apiToken.trim());
     } else {
-      localStorage.removeItem("telos_api_token");
+      sessionStorage.removeItem("telos_api_token");
     }
     window.dispatchEvent(new Event("telos-settings-updated"));
     onClose();

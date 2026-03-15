@@ -16,6 +16,7 @@ from httpx import AsyncClient
 from services.orchestrator.agents.base import AgentBase
 from services.orchestrator.models import AgentRole
 from services.orchestrator.config import get_settings
+from services.orchestrator.privacy.egress import get_egress_logger
 
 logger = logging.getLogger("telos.agent.writer")
 
@@ -37,32 +38,43 @@ class WriterAgent(AgentBase):
             return {"error": "Missing app or value for write operation"}
 
         s = get_settings()
+        egress = get_egress_logger()
         base_url = f"http://{s.windows_mcp_host}:{s.windows_mcp_port}"
 
         try:
             async with AsyncClient(timeout=_TIMEOUT) as client:
                 # Focus the target application window
+                focus_payload = {"app_name": app_name}
                 await client.post(
                     f"{base_url}/uigraph/focus",
-                    json={"app_name": app_name},
+                    json=focus_payload,
                 )
 
                 # Execute the write action with retry logic
                 import asyncio
                 last_exc = None
+                action_payload = {
+                    "app_name": app_name,
+                    "action": "write_value",
+                    "target": detail,
+                    "value": value,
+                }
+                bytes_sent = len(str(action_payload).encode("utf-8"))
                 for attempt in range(3):
                     try:
                         resp = await client.post(
                             f"{base_url}/uigraph/action",
-                            json={
-                                "app_name": app_name,
-                                "action": "write_value",
-                                "target": detail,
-                                "value": value,
-                            },
+                            json=action_payload,
                         )
                         resp.raise_for_status()
                         result = resp.json()
+                        egress.record(
+                            destination=f"uigraph/{s.windows_mcp_host}:{s.windows_mcp_port}",
+                            bytes_sent=bytes_sent,
+                            bytes_received=len(resp.content),
+                            provider="uigraph",
+                            task_id=str(context.get("task_id", "")),
+                        )
                         if result.get("success", False):
                             return {
                                 "app": app_name,
@@ -75,8 +87,8 @@ class WriterAgent(AgentBase):
                     except httpx.HTTPError as exc:
                         logger.warning(f"Write failure on attempt {attempt+1}: {exc}")
                         last_exc = exc
-                    
-                    await asyncio.sleep(1.0)
+
+                    await asyncio.sleep(min(1.0 * (2 ** attempt), 4.0))
 
                 if last_exc:
                     raise last_exc
