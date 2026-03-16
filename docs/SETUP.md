@@ -18,7 +18,7 @@ Copy `.env.example` to `.env` and fill in provider credentials:
 Copy-Item .env.example .env
 ```
 
-**Minimum required** — choose one provider block:
+**Minimum required** — choose one Microsoft provider block:
 
 Azure AI Foundry (recommended for hackathon):
 ```
@@ -37,8 +37,9 @@ AZURE_OPENAI_DEPLOYMENT=gpt-4o
 AZURE_OPENAI_API_VERSION=2024-12-01-preview
 ```
 
-Gemini:
+Optional fallback appendix for non-Microsoft local testing:
 ```
+# Optional only, not used in the Microsoft submission build
 TELOS_PROVIDER=gemini
 GEMINI_API_KEY=your-key
 GEMINI_MODEL=gemini-2.0-flash

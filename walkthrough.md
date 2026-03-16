@@ -9,9 +9,8 @@ This walkthrough is intentionally evidence-based. It describes what is implement
 * **Azure deployment template**: `deploy/azure-deploy.yaml` is a template with probes and secret placeholders; live deployment proof is separate.
 * **Copilot-in-VS-Code workflow artifacts**: `.github/copilot-instructions.md` and `.github/prompts/*` capture the repeatable Copilot workflow used for hardening and review.
 
-## 2. Google Gemini & GCP Advancements
-* **Official GenAI SDK**: The orchestrator relies entirely on the new `google-genai` SDK for Gemini completions rather than bare `httpx`.
-* **GCP Cloud Service option**: A Firestore backend (`memory/firestore_store.py`) is implemented as an optional memory backend alongside SQLite.
+## 2. Supporting Platform Capabilities
+* **Optional Firestore backend**: `memory/firestore_store.py` is implemented as an optional memory backend alongside SQLite.
 * **Multimodal Vision path**: `VisionAgent` supports screenshot + text requests when privacy settings allow image egress.
 
 ## 3. Execution Architecture Fixes (The Forensic Gaps)
@@ -23,7 +22,7 @@ This walkthrough is intentionally evidence-based. It describes what is implement
 ## 4. Frontend / UX Fidelity (The Docs-Only Fixes)
 * **Web Speech API**: Users can now click the microphone icon in the Mission Control dashboard to transcribe commands effortlessly.
 * **Onboarding Flow**: A React configuration wizard overlays the system on the first boot to ensure environment keys are properly set prior to routing the jobs.
-* **Settings & Provider Switcher**: Users can swap between Azure and Gemini dynamically through the React GUI.
+* **Settings & Provider Switcher**: Users can switch between Azure OpenAI, Semantic Kernel, and Azure AI Foundry through the React GUI.
 * **Tauri Desktop Elements**: The system tray is fully configured and the web CSPs are correctly implemented.
 
 ## 5. Known Limits Before Submission
@@ -35,4 +34,4 @@ This walkthrough is intentionally evidence-based. It describes what is implement
 - **Code Completeness**: All endpoints use real logic; no dummy `{"success": true}` stubs remain in production paths.
 - **Tests**: Full Python test suite: **146/146 passed** (8 E2E hero + 138 unit/integration). Go tests pass for scheduler and capture engine.
 - **Privacy**: SSE event payloads are PII-filtered before reaching the frontend. Step details and result values are sanitised via `mask_pii()`.
-- **Portability**: The `ProviderBase` abstraction makes switching between Azure Foundry, Semantic Kernel, and Gemini frictionless via the `TELOS_PROVIDER` env var.
+- **Portability**: The `ProviderBase` abstraction keeps Azure OpenAI, Semantic Kernel, and Azure AI Foundry paths behind a consistent interface.

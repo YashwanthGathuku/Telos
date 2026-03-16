@@ -4,7 +4,7 @@
 
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
 ![Privacy](https://img.shields.io/badge/privacy-first-green)
-![Provider](https://img.shields.io/badge/provider-Azure%20%7C%20Gemini-purple)
+![Provider](https://img.shields.io/badge/provider-Azure%20%7C%20Semantic%20Kernel%20%7C%20Foundry--ready-purple)
 
 ---
 
@@ -28,7 +28,7 @@ All of this is visible through a real-time **Mission Control dashboard** that sh
 | **Privacy** | PII masked, egress tracked, local-first | Data sent freely to cloud |
 | **Cross-app** | Real data movement between desktop apps | Single-app or browser only |
 | **UX** | Mission-control dashboard | Chat bubble interface |
-| **Providers** | Azure & Gemini via one env var | Single provider locked |
+| **Providers** | Microsoft-first provider paths with Semantic Kernel and Foundry-ready support | Single provider locked |
 
 ## Architecture
 
@@ -61,7 +61,7 @@ All of this is visible through a real-time **Mission Control dashboard** that sh
 │  │  └─────────┘   │                                           │
 │  │                 │           ┌───────────────┐               │
 │  │  ┌─────────┐   │           │ Provider Layer │               │
-│  │  │ A2A Bus │   │◄─────────►│ Azure │ Gemini │               │
+│  │  │ A2A Bus │   │◄─────────►│ Azure OpenAI │ SK │ Foundry │  │
 │  │  └─────────┘   │           └───────────────┘               │
 │  │                 │                                           │
 │  │  ┌─────────┐   │                                           │
@@ -139,7 +139,7 @@ npm run tauri dev
 
 ### Provider Switching
 
-One environment variable controls which AI provider TELOS uses:
+One environment variable controls which Microsoft provider path TELOS uses for the submission build:
 
 ```bash
 # Azure OpenAI
@@ -150,12 +150,9 @@ TELOS_PROVIDER=azure_sk
 
 # Azure AI Foundry
 TELOS_PROVIDER=azure_foundry
-
-# Google Gemini
-TELOS_PROVIDER=gemini
 ```
 
-Both providers implement the same contract (`ProviderBase`). No code changes required.
+These provider paths implement the same contract (`ProviderBase`). No code changes are required to switch between Microsoft-backed options.
 
 ### API Authentication
 
@@ -185,7 +182,7 @@ telos/
 │   │   ├── bus/            # A2A event bus
 │   │   ├── memory/         # SQLite / Firestore memory
 │   │   ├── privacy/        # PII filter + egress logger
-│   │   └── providers/      # Azure, Gemini, SK, Foundry adapters
+│   │   └── providers/      # Azure, Semantic Kernel, Foundry-ready adapters
 │   ├── scheduler/          # Go daemon (port 8081)
 │   └── capture_engine/     # Go screenshot service (port 8085)
 ├── deploy/                 # Docker and Azure deployment artifacts

@@ -75,7 +75,7 @@ Observe in real time:
 
 2. **"Privacy is visible, not hidden"** — Every LLM call shows destination, bytes, PII status. Users can audit what left their machine.
 
-3. **"Provider-portable"** — Change one env var to switch between Azure and Gemini. Same task, same pipeline, different model.
+3. **"Microsoft-first provider path"** — Switch between Azure OpenAI, Semantic Kernel, and Azure AI Foundry without changing the task pipeline.
 
 4. **"Real cross-app actions"** — Data actually moved from Notepad to Excel. Not a mock, not a simulation.
 

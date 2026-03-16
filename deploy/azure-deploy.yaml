@@ -27,8 +27,6 @@ properties:
         value: ${AZURE_OPENAI_API_KEY}
       - name: azure-foundry-key
         value: ${AZURE_FOUNDRY_API_KEY}
-      - name: gemini-api-key
-        value: ${GEMINI_API_KEY}
       - name: telos-api-token
         value: ${TELOS_API_TOKEN}
       - name: telos-internal-token
@@ -45,8 +43,6 @@ properties:
             secretRef: azure-openai-key
           - name: AZURE_FOUNDRY_API_KEY
             secretRef: azure-foundry-key
-          - name: GEMINI_API_KEY
-            secretRef: gemini-api-key
           - name: TELOS_PROVIDER
             value: "azure_foundry"
           - name: TELOS_API_TOKEN

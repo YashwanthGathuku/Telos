@@ -47,11 +47,10 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, on
             >
               <option value="azure">Azure OpenAI (HTTP adapter)</option>
               <option value="azure_foundry">Azure AI Foundry</option>
-              <option value="gemini">Google Gemini (GenAI SDK)</option>
               <option value="azure_sk">Azure OpenAI (Semantic Kernel)</option>
             </select>
             <p className="mt-2 text-xs text-telos-text-muted">
-              Applies to new task submissions and health checks immediately.
+              Microsoft submission build surfaces only the Microsoft-backed provider paths.
             </p>
           </div>
 
