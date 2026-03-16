@@ -1,5 +1,14 @@
 # TELOS — Your Machine's Purpose, Automated
 
+## Author
+
+**Yashwanth Gathuku**
+
+## Microsoft Learn Username
+
+**https://learn.microsoft.com/en-us/users/gathukuyashwanth**
+
+
 > A Windows-first desktop operations platform that reads running applications through Windows UI Automation as structured state, coordinates specialized agents to execute cross-application tasks, verifies outcomes, and exposes the workflow through a mission-control dashboard.
 
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
@@ -91,6 +100,10 @@ TELOS is **not** currently claiming:
 - Azure SRE Agent integration
 - fully proven live Azure deployment from this repository alone
 - a separately proven Microsoft Agent Framework implementation beyond the Semantic Kernel-backed Microsoft path
+
+### Watch Video:
+
+**https://youtu.be/a0wsfuQ9C0w
 
 ## Submission Alignment
 
@@ -654,9 +667,7 @@ For submission safety:
 - To prepare the demo: `docs/demo/HERO_DEMO.md`
 - To review remaining gaps: `docs/PENDING.md`
 
-## Author
 
-**Yashwanth Gathuku**
 
 ## License
 
