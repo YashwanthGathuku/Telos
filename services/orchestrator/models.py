@@ -40,6 +40,7 @@ class ProviderName(str, Enum):
     GEMINI = "gemini"
     AZURE_SK = "azure_sk"
     AZURE_FOUNDRY = "azure_foundry"
+    GITHUB_MODELS = "github_models"
 
 
 # ── Core Models ──────────────────────────────────────────────────────────

@@ -30,9 +30,10 @@ Return a JSON array of step objects. Nothing else.
 
 Example:
 [
+  {"agent": "writer", "action": "open_app", "app": "notepad", "detail": "Open Notepad"},
   {"agent": "vision", "action": "inspect_screen", "app": "desktop", "detail": "What applications are currently visible on the taskbar?"},
   {"agent": "reader", "action": "read_field", "app": "QuickBooks", "detail": "Q1 sales total from the Sales Summary report"},
-  {"agent": "writer", "action": "write_cell", "app": "Excel", "detail": "Write the extracted value into cell B4"},
+  {"agent": "writer", "action": "write_value", "app": "Excel", "detail": "Write the extracted value into cell B4"},
   {"agent": "verifier", "action": "verify_write", "app": "Excel", "detail": "Confirm cell B4 contains the expected value"}
 ]"""
 

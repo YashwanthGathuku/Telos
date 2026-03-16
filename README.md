@@ -120,9 +120,22 @@ TELOS aligns with that official submission model as follows:
 | Public repo evidence | Ready | Docs, setup, architecture, and hackathon mapping are committed |
 | Demo-friendly workflow | Ready | See `docs/demo/HERO_DEMO.md` |
 | Installation/testing clarity | Ready | See `docs/SETUP.md` |
-| Architecture diagram | Ready | See `ARCHITECTURE.md`; add a visual diagram to submission materials if possible |
+| Architecture diagram | Ready | Included in this README (Mermaid) and detailed in `ARCHITECTURE.md` |
 | Team information / Microsoft Learn usernames | Pending submission metadata | Must be filled on the submission form |
 | Azure deployment proof | Partial | Azure deployment template exists; live Azure proof should be captured separately |
+
+### Submission Requirements (Official Checklist)
+
+From the official hackathon requirements, your submission package must include all of the following:
+
+- [x] Working project repository (public GitHub repo)
+- [x] Project description with problem, solution, and technologies used
+- [ ] Public demo video under 2 minutes (YouTube/Vimeo/Facebook/Youku)
+- [x] Architecture diagram
+- [ ] Team information with Microsoft Learn username(s)
+- [ ] Testing instructions that let judges run/validate the project
+
+Important: Official rules require the project to function as shown in the video and description.
 
 ## Target Category Mapping
 
@@ -211,6 +224,8 @@ Screenshot Engine (Go) -> VisionAgent -> Provider layer
 ```
 
 Detailed architecture is in `ARCHITECTURE.md`.
+
+For the full annotated architecture diagram with component details, see [`docs/architecture_diagram.md`](docs/architecture_diagram.md).
 
 ### Visual Architecture Diagram
 
@@ -432,13 +447,21 @@ Full TELOS desktop functionality currently requires:
    - `TELOS_PRIVACY_MODE=balanced`
    - `TELOS_ALLOW_IMAGE_EGRESS=true`
 
-### Recommended Microsoft Demo Providers
+5. Never commit `.env` or personal access tokens to GitHub
 
-For the fastest Microsoft-path local run:
+### Provider Paths For Demo and Submission
+
+Fast local smoke-test path (cost-controlled):
+
+- `TELOS_PROVIDER=github_models`
+
+Submission evidence paths (Microsoft/Azure-aligned):
 
 - `TELOS_PROVIDER=azure`
-  or
 - `TELOS_PROVIDER=azure_sk`
+- `TELOS_PROVIDER=azure_foundry`
+
+Use GitHub Models for quick local validation, but keep Azure-backed provider and deployment evidence in the submission narrative.
 
 ### Startup Order
 
@@ -502,6 +525,7 @@ The official Azure AI Dev Days materials require a submission package that is co
 - [ ] Azure deployment explanation, even if the runtime is hybrid
 - [ ] Category selection text aligned to the official categories
 - [ ] Confirmation that the project functions exactly as shown in the video
+- [ ] Testing instructions included in submission text (link to `docs/SETUP.md`)
 
 ### Submission Safety Checks
 
@@ -629,6 +653,10 @@ For submission safety:
 - To map claims to files: `docs/HACKATHON_TECH_MAP.md`
 - To prepare the demo: `docs/demo/HERO_DEMO.md`
 - To review remaining gaps: `docs/PENDING.md`
+
+## Author
+
+**Yashwanth Gathuku**
 
 ## License
 

@@ -66,6 +66,13 @@ Official sources:
 | Copilot-guided workflow documented | End-to-end coding standards and guardrails for Copilot | `.github/copilot-instructions.md` |
 | Copilot-assisted hardening outcomes documented | SSE sanitization, CORS hardening, port consistency, docs truth-tightening | `walkthrough.md`, `README.md` |
 
+### 7. Local Cost-Controlled Validation Provider (Non-hero)
+
+| Claim | Evidence | File |
+|-------|----------|------|
+| Optional GitHub Models provider for low-cost local testing | `GitHubModelsProvider` implementation and registry wiring | `services/orchestrator/providers/github_models_provider.py`, `services/orchestrator/providers/registry.py` |
+| Explicitly treated as local validation path, not Azure-submission replacement | Setup and README guidance | `docs/SETUP.md`, `README.md` |
+
 ---
 
 ## Official Category Strategy

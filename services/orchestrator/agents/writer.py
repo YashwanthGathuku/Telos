@@ -33,9 +33,12 @@ class WriterAgent(AgentBase):
         app_name: str = context.get("app", "")
         detail: str = context.get("detail", "")
         value: str = context.get("value", "")
+        action: str = context.get("action", "write_value")
 
-        if not app_name or not value:
-            return {"error": "Missing app or value for write operation"}
+        if not app_name:
+            return {"error": "Missing app name for writer operation"}
+        if action == "write_value" and not value:
+            return {"error": "Missing value for write operation"}
 
         s = get_settings()
         egress = get_egress_logger()
@@ -43,12 +46,21 @@ class WriterAgent(AgentBase):
 
         try:
             async with AsyncClient(timeout=_TIMEOUT) as client:
-                # Focus the target application window
+                # Focus or launch the target application window
                 focus_payload = {"app_name": app_name}
                 await client.post(
                     f"{base_url}/uigraph/focus",
                     json=focus_payload,
                 )
+
+                # If the action was just to open/focus the app, return early
+                if action in ("open_app", "focus"):
+                    return {
+                        "app": app_name,
+                        "action": action,
+                        "success": True,
+                        "source": "uia",
+                    }
 
                 # Execute the write action with retry logic
                 import asyncio

@@ -114,6 +114,18 @@ public sealed class UIAutomationService
     public bool FocusWindow(string appName)
     {
         var snapshot = CaptureSnapshot(appName);
+        if (snapshot == null)
+        {
+            try
+            {
+                // Try to launch the app if it's not found (e.g. "notepad")
+                Process.Start(new ProcessStartInfo { FileName = appName, UseShellExecute = true });
+                System.Threading.Thread.Sleep(1500); // Give it a moment to initialize
+                snapshot = CaptureSnapshot(appName);
+            }
+            catch { }
+        }
+
         if (snapshot == null) return false;
 
         try

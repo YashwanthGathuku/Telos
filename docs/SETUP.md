@@ -18,7 +18,16 @@ Copy `.env.example` to `.env` and fill in provider credentials:
 Copy-Item .env.example .env
 ```
 
-**Minimum required** — choose one Microsoft provider block:
+**Minimum required** — choose one provider block:
+
+GitHub Models (fast local smoke-test, low cost):
+```
+TELOS_PROVIDER=github_models
+GITHUB_MODELS_TOKEN=your-github-token
+GITHUB_MODELS_MODEL=gpt-4o
+```
+
+Microsoft/Azure submission path:
 
 Azure AI Foundry (recommended for hackathon):
 ```
@@ -44,6 +53,11 @@ TELOS_PROVIDER=gemini
 GEMINI_API_KEY=your-key
 GEMINI_MODEL=gemini-2.0-flash
 ```
+
+Official hackathon note:
+
+- For submission alignment, include Azure-backed evidence (provider path and Azure deployment artifacts) in your final description/video package.
+- GitHub Models is useful for low-cost local validation but is not a substitute for Azure deployment requirements.
 
 ## Port Map
 

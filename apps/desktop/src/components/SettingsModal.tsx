@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Settings, X } from "lucide-react";
 
 export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [provider, setProvider] = useState("azure");
+  const [provider, setProvider] = useState("github_models");
   const [apiToken, setApiToken] = useState("");
   
   useEffect(() => {
@@ -45,6 +45,7 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, on
               onChange={(e) => setProvider(e.target.value)}
               className="w-full bg-telos-bg border border-telos-border rounded px-3 py-2 text-white font-mono focus:border-telos-accent outline-none"
             >
+              <option value="github_models">GitHub Models (Free via PAT)</option>
               <option value="azure">Azure OpenAI (HTTP adapter)</option>
               <option value="azure_foundry">Azure AI Foundry</option>
               <option value="azure_sk">Azure OpenAI (Semantic Kernel)</option>

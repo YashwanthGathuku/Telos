@@ -6,6 +6,13 @@ The hero demo showcases TELOS's core differentiator: reading desktop application
 
 For the Microsoft AI Dev Days submission, record the final video as a public demo under 2 minutes and ensure the workflow shown matches the documented setup exactly.
 
+Official submission constraints to follow while recording:
+
+- Video must be less than 2 minutes (judges are not required to watch beyond 2 minutes)
+- Show the project functioning on its intended platform (Windows desktop)
+- Upload a public video URL (YouTube/Vimeo/Facebook/Youku)
+- Avoid copyrighted music/trademark material unless you have permission
+
 ## Demo Scenario
 
 **Task:** "Copy the Q1 sales total from QuickBooks into Excel cell B4"
@@ -29,6 +36,7 @@ If QuickBooks is unavailable:
    - Desktop app: Tauri window open
 3. Target applications (Notepad + Excel) open and visible
 4. System Status panel shows all services green
+5. Workflow shown in video matches what is documented in `README.md` and `docs/SETUP.md`
 
 ## Demo Walkthrough
 

@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     azure_foundry_api_key: str = ""
     azure_foundry_model: str = ""
 
+    # GitHub Models (free via GitHub PAT — models.inference.ai.azure.com)
+    github_models_token: str = ""
+    github_models_model: str = "gpt-4o"
+
     # Google Cloud (Firestore / GCP services)
     google_cloud_project: str = ""
     firestore_collection: str = "telos_tasks"
