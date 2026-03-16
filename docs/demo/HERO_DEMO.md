@@ -18,13 +18,15 @@ If QuickBooks is unavailable:
 ## Pre-flight Checklist
 
 1. `.env` configured with valid provider credentials
-2. All four services running:
+2. All core services running:
    - Orchestrator: `http://localhost:8080/health`
    - Scheduler: `http://localhost:8081/health`
    - UIGraph: `http://localhost:8083/health`
+   - Delta Engine: `http://localhost:8084/health`
+   - Screenshot Engine: `http://localhost:8085/health`
    - Desktop app: Tauri window open
 3. Target applications (Notepad + Excel) open and visible
-4. System Status panel shows all three services green
+4. System Status panel shows all services green
 
 ## Demo Walkthrough
 
@@ -32,7 +34,7 @@ If QuickBooks is unavailable:
 
 Point out the mission-control layout:
 - **Command Bar** at top — not a chatbot, it's a task operator
-- **System Status** — three green dots for services
+- **System Status** — green status for orchestrator, scheduler, UIGraph, screenshot, and delta services
 - **Privacy Monitor** — shows 100% local, 0 bytes sent
 - **Agent Grid** — all five agents idle
 - **Task Timeline** — empty, ready for action

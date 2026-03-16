@@ -78,4 +78,4 @@ if (Test-Path $desktop) {
 
 Write-Host ""
 Write-Host "=== All services launched ===" -ForegroundColor Cyan
-Write-Host "Verify health: Invoke-RestMethod http://localhost:8080/api/status" -ForegroundColor Gray
+Write-Host "Verify health: Invoke-RestMethod http://localhost:8080/system/state" -ForegroundColor Gray

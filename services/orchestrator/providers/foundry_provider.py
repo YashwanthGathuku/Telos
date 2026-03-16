@@ -1,9 +1,8 @@
 """
 TELOS Provider — Azure AI Foundry adapter.
 
-Uses the Azure AI Foundry SDK (azure-ai-projects) to interact with models
-deployed through Azure AI Foundry, satisfying the hackathon's "Best Use of
-Microsoft Foundry" hero technology requirement.
+Uses httpx against an Azure OpenAI-compatible endpoint exposed by
+an Azure AI Foundry project.
 
 This provider connects to an Azure AI Foundry project and uses its
 inference endpoint for chat completions, with full support for multimodal

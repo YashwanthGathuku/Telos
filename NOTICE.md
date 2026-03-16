@@ -26,7 +26,7 @@ This project uses the following third-party software:
 
 ### Scheduler
 - **Go standard library** (BSD-3-Clause)
-- **mattn/go-sqlite3** (MIT) — SQLite driver for Go
+- **modernc.org/sqlite** (BSD-style) — SQLite driver for Go
 
 ### AI Providers
 - **Azure OpenAI Service** — Microsoft Cloud AI

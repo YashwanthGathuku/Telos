@@ -65,6 +65,7 @@ export interface SystemState {
     scheduler: boolean;
     uigraph: boolean;
     capture_engine: boolean;
+    delta_engine: boolean;
   };
 }
 

@@ -11,6 +11,12 @@ interface TopBarProps {
 
 export default function TopBar({ onOpenSettings }: TopBarProps) {
   const { connected, systemState } = useTelosStore();
+  const privacyMode = (systemState?.privacy_mode ?? "unknown").toUpperCase();
+  const privacyColor = privacyMode === "STRICT"
+    ? "text-telos-success"
+    : privacyMode === "BALANCED"
+      ? "text-telos-warning"
+      : "text-telos-text-muted";
 
   return (
     <div className="h-12 bg-telos-surface border-b border-telos-border flex items-center px-4 gap-4 shrink-0">
@@ -41,8 +47,8 @@ export default function TopBar({ onOpenSettings }: TopBarProps) {
 
       {/* Privacy mode */}
       <div className="flex items-center gap-1 text-xs text-telos-text-muted">
-        <Shield size={14} className="text-telos-success" />
-        <span>STRICT</span>
+        <Shield size={14} className={privacyColor} />
+        <span>{privacyMode}</span>
       </div>
 
       {/* Connection status */}

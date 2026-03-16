@@ -6,7 +6,7 @@ This document maps TELOS features to Microsoft AI Dev Day Hackathon categories a
 
 ## Hero Technologies Used
 
-### 1. Microsoft Agent Framework / Semantic Kernel
+### 1. Semantic Kernel-backed Microsoft Agent Path
 
 | Claim | Evidence | File |
 |-------|----------|------|
@@ -34,7 +34,7 @@ This document maps TELOS features to Microsoft AI Dev Day Hackathon categories a
 | Provider registry with overrides | `get_provider()` + `provider_override()` context manager | `services/orchestrator/providers/registry.py` |
 | Per-request provider switching | `X-Telos-Provider` header routes to different backends | `services/orchestrator/app.py` (submit_task endpoint) |
 
-### 4. Azure MCP / Model Context Protocol
+### 4. Local MCP-style Model Context Protocol Server
 
 | Claim | Evidence | File |
 |-------|----------|------|
@@ -51,24 +51,26 @@ This document maps TELOS features to Microsoft AI Dev Day Hackathon categories a
 | Docker Compose for local containers | Multi-service compose with env passthrough | `deploy/docker-compose.yml` |
 | Dockerfiles for orchestrator & scheduler | Production-ready multi-stage builds | `deploy/Dockerfile.orchestrator`, `deploy/Dockerfile.scheduler` |
 
-### 6. GitHub Copilot Agent Mode + VS Code
+### 6. GitHub Copilot + VS Code Workflow Evidence
 
 | Claim | Evidence | File |
 |-------|----------|------|
 | Copilot instructions configured | Detailed project-specific instructions | `.github/copilot-instructions.md` |
 | VS Code workspace support | Python, Go, Rust, C#, TypeScript toolchain | `.github/workflows/ci.yml`, project root configs |
-| Agent mode actively used | All code reviewed/hardened with Copilot Agent Mode | This document / `walkthrough.md` |
+| Reusable Copilot prompts committed | Security-review, local-run, and judge-readiness prompt files | `.github/prompts/*.prompt.md` |
+| Copilot-guided workflow documented | End-to-end coding standards and guardrails for Copilot | `.github/copilot-instructions.md` |
+| Copilot-assisted hardening outcomes documented | SSE sanitization, CORS hardening, port consistency, docs truth-tightening | `walkthrough.md`, `README.md` |
 
 ---
 
 ## Hackathon Category Fit
 
-### Primary: AI Agent using Microsoft Agent Framework
+### Primary: AI Agent application with Semantic Kernel-backed Microsoft path
 - Real specialist agent pipeline (not a single-prompt chatbot)
 - Semantic Kernel + Azure OpenAI backend
 - Multi-step task decomposition with verification
 
-### Secondary: Multi-Agent Application powered by Model Router
+### Secondary: Multi-Agent application with provider-switchable routing
 - 5 distinct agent roles with different capabilities
 - Dynamic model routing via `ProviderBase` abstraction
 - Per-request provider switching via HTTP header
@@ -89,4 +91,4 @@ This document maps TELOS features to Microsoft AI Dev Day Hackathon categories a
 | Token-level usage metrics in SK provider | SK SDK does not surface these; byte-level tracking is accurate |
 | Firestore composite indexes | Documented as manual step; not auto-provisioned |
 | Demo video | Pending recording |
-| Team information | Placeholder — fill before submission |
+| Team information | Solo entrant metadata should be finalized in submission form |

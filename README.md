@@ -99,6 +99,8 @@ Dashboard → Shows live progress, privacy metrics, agent states
 - Rust (MSVC target recommended for Tauri build)
 - Visual Studio Build Tools with MSVC (`link.exe`)
 
+For judge-friendly setup with the latest verified startup order and troubleshooting, use `docs/SETUP.md` as the canonical runbook.
+
 ### Setup
 
 ```bash
@@ -121,11 +123,15 @@ go run main.go
 cd services/capture_engine
 go run main.go
 
-# 5. Start the UIGraph service (C#)
+# 5. Start the Delta Engine (Rust — port 8084)
+cd uigraph/rust_engine
+cargo run --release
+
+# 6. Start the UIGraph service (C#)
 cd uigraph/windows
 dotnet run
 
-# 6. Start the desktop app
+# 7. Start the desktop app
 cd apps/desktop
 npm install
 npm run tauri dev
@@ -141,6 +147,9 @@ TELOS_PROVIDER=azure
 
 # Azure OpenAI via Semantic Kernel
 TELOS_PROVIDER=azure_sk
+
+# Azure AI Foundry
+TELOS_PROVIDER=azure_foundry
 
 # Google Gemini
 TELOS_PROVIDER=gemini
@@ -252,7 +261,7 @@ npm run tauri:build:msvc
 
 ## Microsoft AI Dev Day Hackathon
 
-TELOS targets the **AI Agent using Microsoft Agent Framework** category.
+TELOS targets an **AI agent application with a Semantic Kernel-backed Microsoft path**.
 
 ### Technologies Used
 
@@ -271,11 +280,11 @@ See [docs/HACKATHON_TECH_MAP.md](docs/HACKATHON_TECH_MAP.md) for detailed requir
 ### How GitHub Copilot Agent Mode Was Used
 
 TELOS was developed using GitHub Copilot Agent Mode in VS Code as the primary AI-assisted development workflow:
-- **Code generation**: Agent mode generated the polyglot service implementations across Python, Go, Rust, C#, and TypeScript
-- **Code review**: Agent mode performed deep security/privacy audits and identified PII leakage in SSE payloads
-- **Test authoring**: E2E hero tests and privacy masking tests were co-authored with Copilot
-- **Architecture hardening**: Agent mode identified port conflicts, CORS issues, and deployment misconfigurations
-- **Documentation**: Hackathon tech mapping, architecture docs, and this README were reviewed/improved with Copilot
+- **Project-specific Copilot guardrails**: Maintained in `.github/copilot-instructions.md` to enforce privacy-first, Windows-first engineering behavior
+- **Repeatable Copilot prompts**: Stored in `.github/prompts/` for security review, local-run hardening, and judge-readiness passes
+- **Security and privacy hardening passes**: Used Copilot-assisted review to identify and fix SSE PII sanitization, token handling, and CORS tightening
+- **Cross-service consistency checks**: Used Copilot-assisted diffs to resolve port/env-var drift across Python, Go, Rust, and frontend code
+- **Documentation accuracy sweeps**: Used Copilot-assisted verification to align setup docs, status endpoints, and hackathon claims with live code
 
 The `.github/copilot-instructions.md` file contains project-specific instructions that guide Copilot Agent Mode to maintain TELOS's privacy-first, Windows-first, polyglot engineering standards.
 

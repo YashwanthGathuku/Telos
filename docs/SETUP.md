@@ -165,7 +165,7 @@ All should return `{"status": "healthy"}` or equivalent.
 The orchestrator also provides a combined status endpoint:
 
 ```powershell
-Invoke-RestMethod http://localhost:8080/api/status
+Invoke-RestMethod http://localhost:8080/system/state
 ```
 
 This returns the health of all downstream services, active tasks, and egress metrics.
@@ -185,7 +185,7 @@ Set `TELOS_PRIVACY_MODE=balanced` and `TELOS_ALLOW_IMAGE_EGRESS=true` to enable 
 
 **"Provider not configured"**: Check that `TELOS_PROVIDER` is set and the corresponding API key env var is populated.
 
-**Orchestrator can't reach UIGraph**: Ensure UIGraph is running on port 8083 before starting the orchestrator. The orchestrator reports service health via `/api/status`.
+**Orchestrator can't reach UIGraph**: Ensure UIGraph is running on port 8083 before starting the orchestrator. The orchestrator reports service health via `/system/state`.
 
 **VisionAgent returns "blocked by privacy mode"**: Set `TELOS_PRIVACY_MODE=balanced` and `TELOS_ALLOW_IMAGE_EGRESS=true` in `.env`.
 
