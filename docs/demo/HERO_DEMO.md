@@ -1,122 +1,111 @@
-# TELOS Hero Demo Guide
+# TELOS demo recording guide
 
-## Overview
+Target length: 3 to 4 minutes total.
 
-The hero demo showcases TELOS's core differentiator: reading desktop applications via Windows UI Automation (not screenshots), coordinating specialist agents, and displaying live execution state in a privacy-visible mission control dashboard.
+The goal of the video is to prove three things quickly:
 
-For the Microsoft AI Dev Days submission, record the final video as a public demo under 2 minutes and ensure the workflow shown matches the documented setup exactly.
+1. This is a Gemini-powered `UI Navigator`
+2. It performs real Windows desktop actions
+3. It uses Google Cloud in the deployed architecture
 
-Official submission constraints to follow while recording:
+## Before you record
 
-- Video must be less than 2 minutes (judges are not required to watch beyond 2 minutes)
-- Show the project functioning on its intended platform (Windows desktop)
-- Upload a public video URL (YouTube/Vimeo/Facebook/Youku)
-- Avoid copyrighted music/trademark material unless you have permission
+- Confirm the repo README is pushed publicly
+- Confirm the Gemini key works
+- Start the Windows companion services
+- Start the orchestrator
+- Open the target apps you want to use
+- If you have Cloud Run deployed, have the service URL ready in a browser tab
 
-## Demo Scenario
+## Recommended demo scenario
 
-**Task:** "Copy the Q1 sales total from QuickBooks into Excel cell B4"
+Primary command:
 
-### Substitution for Demo
+`Open Calculator and compute 15 times 23`
 
-If QuickBooks is unavailable:
-- Open **Notepad** → type `Q1 Sales Total: $142,587.00` → save as `sales.txt`
-- Open **Excel** → create a blank workbook
-- Modify task to: "Copy the Q1 sales total from Notepad into Excel cell B4"
+Follow-up command:
 
-## Pre-flight Checklist
+`Open Notepad and type the answer`
 
-1. `.env` configured with valid provider credentials
-2. All core services running:
-   - Orchestrator: `http://localhost:8080/health`
-   - Scheduler: `http://localhost:8081/health`
-   - UIGraph: `http://localhost:8083/health`
-   - Delta Engine: `http://localhost:8084/health`
-   - Screenshot Engine: `http://localhost:8085/health`
-   - Desktop app: Tauri window open
-3. Target applications (Notepad + Excel) open and visible
-4. System Status panel shows all services green
-5. Workflow shown in video matches what is documented in `README.md` and `docs/SETUP.md`
+This is short, obvious, and easy for judges to verify visually.
 
-## Demo Walkthrough
+## Shot list
 
-### Step 1: Show the Dashboard (10s)
+### 0:00 to 0:20 - challenge framing
 
-Point out the mission-control layout:
-- **Command Bar** at top — not a chatbot, it's a task operator
-- **System Status** — green status for orchestrator, scheduler, UIGraph, screenshot, and delta services
-- **Privacy Monitor** — shows 100% local, 0 bytes sent
-- **Agent Grid** — all five agents idle
-- **Task Timeline** — empty, ready for action
+Show the README header or your slide with:
 
-### Step 2: Submit the Task (5s)
+- Gemini Live Agent Challenge
+- UI Navigator category
+- Gemini + Google ADK + Cloud Run
 
-Type in Command Bar:
+### 0:20 to 0:45 - services running
+
+Show:
+
+- `http://localhost:8080/health`
+- `http://localhost:8080/adk/health`
+- `http://localhost:8083/health`
+- `http://localhost:8085/health`
+
+### 0:45 to 2:20 - real desktop action
+
+Run:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8080/navigate `
+  -ContentType application/json `
+  -Body '{"task":"Open Calculator and compute 15 times 23"}'
 ```
-Copy the Q1 sales total from Notepad into Excel cell B4
+
+Show Calculator opening and the result appearing.
+
+Then run:
+
+```powershell
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8080/navigate `
+  -ContentType application/json `
+  -Body '{"task":"Open Notepad and type the answer"}'
 ```
 
-Click **Execute Mission** or press Enter.
+Show Notepad opening and the value being typed.
 
-### Step 3: Watch Live Execution (20s)
+### 2:20 to 2:50 - tool streaming
 
-Observe in real time:
-1. **Task Timeline** — new task card appears, status: `running`
-2. **Agent Grid** — Planner Agent lights up, then Reader, Writer, Verifier
-3. **UIGraph Panel** — shows UIA events as Notepad is read
-4. **Privacy Monitor** — updates: 1 LLM call, bytes sent/received, fields masked count
-5. **Task Timeline** — steps appear as they complete
+Show:
 
-### Step 4: Verify Results (5s)
-
-- Switch to Excel — cell B4 should contain `$142,587.00`
-- Back to TELOS — task status shows `completed`
-- Privacy Monitor shows egress audit trail
-
-### Step 5: Show Privacy (10s)
-
-- Privacy Monitor: "No PII leaked" indicator
-- Egress section: exact bytes sent to provider, destination logged
-- Click through to see per-task privacy summary
-
-## Key Demo Talking Points
-
-1. **"We read applications, not screenshots"** — UIA extracts structured text, element types, and relationships. Password fields automatically masked.
-
-2. **"Privacy is visible, not hidden"** — Every LLM call shows destination, bytes, PII status. Users can audit what left their machine.
-
-3. **"Microsoft-first provider path"** — Switch between Azure OpenAI, Semantic Kernel, and Azure AI Foundry without changing the task pipeline.
-
-4. **"Real cross-app actions"** — Data actually moved from Notepad to Excel. Not a mock, not a simulation.
-
-5. **"Operations dashboard, not a chatbot"** — Dense, professional UI showing system state, agent status, execution timeline. Built for power users.
-
-## Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| System Status shows red dot | Check if the service is running on its port |
-| "Connection lost" in TopBar | Orchestrator not responding, restart it |
-| Task stays in `planning` | Check provider credentials in `.env` |
-| UIGraph returns empty | Ensure target app is visible (not minimized) |
-| Excel cell not updated | Run Excel as same user, ensure it's not in edit mode |
-
-## Quick Start Commands
-
-```bash
-# Terminal 1: Orchestrator
-cd services/orchestrator
-python -m services.orchestrator
-
-# Terminal 2: Scheduler
-cd services/scheduler
-go run main.go
-
-# Terminal 3: UIGraph
-cd uigraph/windows
-dotnet run
-
-# Terminal 4: Desktop
-cd apps/desktop
-npm run tauri dev
+```powershell
+curl "http://localhost:8080/navigate/stream?message=Open+Notepad+and+type+Hello+Gemini"
 ```
+
+This proves the ADK loop is calling tools live, not returning a fake final answer.
+
+### 2:50 to 3:30 - Google Cloud evidence
+
+Show:
+
+- Cloud Run service URL responding to `/health`
+- The deploy command or Cloud Run console
+- Firestore collection or Cloud Run environment variables if available
+
+State clearly:
+
+"Cloud Run hosts the Gemini orchestrator and ADK navigator. The Windows companion stays on the controlled machine because it needs a live desktop session."
+
+### 3:30 to 4:00 - close
+
+Summarize in one sentence:
+
+"TELOS gives Gemini multimodal desktop understanding plus executable UI actions, which is why it fits the UI Navigator category."
+
+## Recording tips
+
+- Record at 100 percent display scaling if possible
+- Use large terminal fonts
+- Avoid switching between too many windows
+- Keep the demo in one take if you can
+- Do not claim voice or audio streaming unless you implement it before recording

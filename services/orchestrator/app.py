@@ -1,15 +1,20 @@
 """
-TELOS Orchestrator — FastAPI application.
+TELOS Orchestrator FastAPI application.
 
-MCP port 8080. Provides:
-- POST /task — submit a new task
-- GET  /task/{id} — get task status
-- GET  /tasks — list all tasks
-- GET  /events — SSE event stream for the frontend
-- GET  /privacy/summary — egress summary
-- GET  /privacy/egress — recent egress records
-- GET  /health — service health check
-- GET  /system/state — current system state for dashboard
+Endpoints:
+- POST /task
+- GET /task/{id}
+- GET /tasks
+- GET /events
+- GET /privacy/summary
+- GET /privacy/egress
+- GET /system/state
+- GET /models
+- POST /navigate
+- GET /navigate/stream
+- GET /health
+- GET /ready
+- GET /history
 """
 
 from __future__ import annotations
@@ -18,22 +23,24 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Depends
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
-from services.orchestrator.models import (
-    TaskRequest, TelosEvent, EventType,
-)
-from services.orchestrator.config import get_settings
-from services.orchestrator.router import TaskRouter
+from services.orchestrator.agents.adk_live import router as adk_live_router
 from services.orchestrator.bus.a2a import get_bus
-from services.orchestrator.privacy.egress import get_egress_logger
-from services.orchestrator.providers.registry import get_provider
-from services.orchestrator.providers.registry import get_provider_name, provider_override
+from services.orchestrator.config import get_settings
 from services.orchestrator.memory.store import get_memory
 from services.orchestrator.middleware.auth import auth_dependency
 from services.orchestrator.middleware.rate_limit import rate_limit_dependency
+from services.orchestrator.models import TaskRequest, TelosEvent
+from services.orchestrator.privacy.egress import get_egress_logger
+from services.orchestrator.providers.registry import (
+    get_provider,
+    get_provider_name,
+    provider_override,
+)
+from services.orchestrator.router import TaskRouter
 
 logger = logging.getLogger("telos.app")
 
@@ -41,10 +48,16 @@ logger = logging.getLogger("telos.app")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application startup and shutdown."""
-    s = get_settings()
-    logging.basicConfig(level=getattr(logging, s.telos_log_level.upper(), logging.INFO))
-    logger.info("TELOS Orchestrator starting on %s:%d", s.orchestrator_host, s.orchestrator_port)
-    logger.info("Provider: %s", s.telos_provider.value)
+    settings = get_settings()
+    logging.basicConfig(
+        level=getattr(logging, settings.telos_log_level.upper(), logging.INFO)
+    )
+    logger.info(
+        "TELOS Orchestrator starting on %s:%d",
+        settings.orchestrator_host,
+        settings.orchestrator_port,
+    )
+    logger.info("Provider: %s", settings.telos_provider.value)
 
     app.state.router = TaskRouter()
     app.state.bus = get_bus()
@@ -59,19 +72,24 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="TELOS Orchestrator",
     version="0.1.0",
-    description="Desktop operations orchestrator — task routing, agent coordination, privacy enforcement.",
+    description="Desktop operations orchestrator for task routing and agent coordination.",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:1420", "http://127.0.0.1:1420", "tauri://localhost"],
+    allow_origins=["*"],
     allow_methods=["GET", "POST"],
-    allow_headers=["Authorization", "Content-Type", "X-Telos-Provider", "X-Telos-Api-Token"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "X-Telos-Provider",
+        "X-Telos-Api-Token",
+    ],
 )
 
+app.include_router(adk_live_router)
 
-# ── Task Endpoints ───────────────────────────────────────────────────────
 
 @app.post("/task", dependencies=[Depends(auth_dependency), Depends(rate_limit_dependency)])
 async def submit_task(req: TaskRequest, request: Request):
@@ -104,14 +122,12 @@ async def get_task(task_id: str):
 async def list_tasks():
     """List all active tasks."""
     task_router: TaskRouter = app.state.router
-    return [t.model_dump() for t in task_router.active_tasks()]
+    return [task.model_dump() for task in task_router.active_tasks()]
 
-
-# ── SSE Event Stream ─────────────────────────────────────────────────────
 
 @app.get("/events", dependencies=[Depends(auth_dependency)])
 async def event_stream(request: Request):
-    """Server-Sent Events stream for the mission-control dashboard."""
+    """Server-sent events stream for the mission-control dashboard."""
     bus = app.state.bus
     queue: asyncio.Queue[TelosEvent] = asyncio.Queue()
 
@@ -130,37 +146,33 @@ async def event_stream(request: Request):
                     data = event.model_dump_json()
                     yield f"event: {event.event_type.value}\ndata: {data}\n\n"
                 except asyncio.TimeoutError:
-                    yield f"event: heartbeat\ndata: {{}}\n\n"
+                    yield "event: heartbeat\ndata: {}\n\n"
         finally:
             bus.unsubscribe(None, handler)
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
 
-# ── Privacy Endpoints ────────────────────────────────────────────────────
-
 @app.get("/privacy/summary", dependencies=[Depends(auth_dependency)])
 async def privacy_summary():
-    """Aggregate privacy / egress metrics."""
+    """Aggregate privacy and egress metrics."""
     egress = app.state.egress
     return egress.summary()
 
 
 @app.get("/privacy/egress", dependencies=[Depends(auth_dependency)])
 async def privacy_egress():
-    """Recent egress records."""
+    """Return recent egress records."""
     egress = app.state.egress
-    return [r.model_dump() for r in egress.recent()]
+    return [record.model_dump() for record in egress.recent()]
 
-
-# ── System State ─────────────────────────────────────────────────────────
 
 @app.get("/system/state", dependencies=[Depends(auth_dependency)])
 async def system_state(request: Request):
-    """Current system snapshot for the dashboard."""
+    """Return the current service and task state for the dashboard."""
     import httpx
 
-    s = get_settings()
+    settings = get_settings()
     task_router: TaskRouter = app.state.router
     egress = app.state.egress
     provider_header = request.headers.get("x-telos-provider")
@@ -171,9 +183,9 @@ async def system_state(request: Request):
 
     async def check_service(url: str) -> bool:
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(1.0)) as hc:
-                r = await hc.get(url)
-                return r.status_code == 200
+            async with httpx.AsyncClient(timeout=httpx.Timeout(1.0)) as client:
+                response = await client.get(url)
+                return response.status_code == 200
         except Exception:
             return False
 
@@ -183,13 +195,21 @@ async def system_state(request: Request):
         try:
             provider_healthy = await provider.health_check()
         except Exception:
-            pass
+            provider_healthy = False
 
     scheduler_ok, uigraph_ok, screenshot_ok, delta_ok = await asyncio.gather(
-        check_service(f"http://{s.scheduler_host}:{s.scheduler_port}/health"),
-        check_service(f"http://{s.windows_mcp_host}:{s.windows_mcp_port}/health"),
-        check_service(f"http://{s.screenshot_engine_host}:{s.screenshot_engine_port}/health"),
-        check_service(f"http://{s.delta_engine_host}:{s.delta_engine_port}/health"),
+        check_service(
+            f"http://{settings.scheduler_host}:{settings.scheduler_port}/health"
+        ),
+        check_service(
+            f"http://{settings.windows_mcp_host}:{settings.windows_mcp_port}/health"
+        ),
+        check_service(
+            f"http://{settings.screenshot_engine_host}:{settings.screenshot_engine_port}/health"
+        ),
+        check_service(
+            f"http://{settings.delta_engine_host}:{settings.delta_engine_port}/health"
+        ),
     )
 
     active = task_router.active_tasks()
@@ -197,7 +217,7 @@ async def system_state(request: Request):
     return {
         "provider": active_provider_name.value,
         "provider_healthy": provider_healthy,
-        "privacy_mode": s.telos_privacy_mode,
+        "privacy_mode": settings.telos_privacy_mode,
         "active_tasks": len(active),
         "total_tasks": len(total),
         "egress": egress.summary(),
@@ -211,7 +231,55 @@ async def system_state(request: Request):
     }
 
 
-# ── Health ───────────────────────────────────────────────────────────────
+@app.get("/models", dependencies=[Depends(auth_dependency)])
+async def list_available_models(request: Request):
+    """List the configured Gemini model exposed by the orchestrator."""
+    settings = get_settings()
+    provider_header = request.headers.get("x-telos-provider")
+    try:
+        active_provider_name = get_provider_name(provider_header)
+    except ValueError as exc:
+        return JSONResponse(status_code=400, content={"error": str(exc)})
+
+    return [
+        {
+            "id": settings.gemini_model,
+            "name": settings.gemini_model,
+            "publisher": active_provider_name.value,
+            "rate_tier": "1x",
+        }
+    ]
+
+
+@app.post("/navigate", dependencies=[Depends(auth_dependency)])
+async def navigate(req: TaskRequest):
+    """Execute a UI navigation command via the ADK agent."""
+    from services.orchestrator.agents.adk_runner import run_navigator_task
+
+    try:
+        return await run_navigator_task(user_message=req.task)
+    except Exception as exc:
+        logger.exception("Navigator task failed")
+        return JSONResponse(status_code=500, content={"error": str(exc)})
+
+
+@app.get("/navigate/stream", dependencies=[Depends(auth_dependency)])
+async def navigate_stream(request: Request, message: str = ""):
+    """SSE stream for ADK navigator events."""
+    del request
+    from services.orchestrator.agents.adk_runner import stream_navigator_events
+
+    if not message:
+        return JSONResponse(status_code=400, content={"error": "message query param required"})
+
+    async def generate():
+        async for event in stream_navigator_events(user_message=message):
+            import json
+
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
 
 @app.get("/health")
 async def health():
@@ -235,12 +303,14 @@ async def ready():
     except Exception:
         provider_healthy = False
 
-    ready_state = all([
-        hasattr(app.state, "router"),
-        hasattr(app.state, "bus"),
-        hasattr(app.state, "egress"),
-        memory_ok,
-    ])
+    ready_state = all(
+        [
+            hasattr(app.state, "router"),
+            hasattr(app.state, "bus"),
+            hasattr(app.state, "egress"),
+            memory_ok,
+        ]
+    )
 
     status_code = 200 if ready_state else 503
     return JSONResponse(
@@ -253,8 +323,6 @@ async def ready():
         },
     )
 
-
-# ── Task History ─────────────────────────────────────────────────────────
 
 @app.get("/history", dependencies=[Depends(auth_dependency)])
 async def task_history():

@@ -56,3 +56,7 @@ env/
 # Nested DB/log dirs (scheduler and other services)
 services/scheduler/telos_memory_db/
 services/scheduler/logs/
+.claude/
+uigraph/windows/publish/
+*.spec
+build_single_exe.ps1

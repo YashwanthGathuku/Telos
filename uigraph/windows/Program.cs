@@ -79,6 +79,23 @@ app.MapPost("/uigraph/focus", async (HttpContext ctx) =>
     return Results.Ok(new { success, app = req.AppName });
 });
 
+// Launch an application (searches Start Menu, registry App Paths, UWP Store, PATH fallback)
+app.MapPost("/uigraph/launch", async (HttpContext ctx) =>
+{
+    var req = await ctx.Request.ReadFromJsonAsync<LaunchRequest>();
+    if (req == null || string.IsNullOrWhiteSpace(req.AppName))
+        return Results.BadRequest(new { error = "app_name is required" });
+
+    if (req.AppName.Length > 256 || req.HintExe.Length > 1024)
+        return Results.BadRequest(new { error = "Input too long" });
+
+    var hintExe = string.IsNullOrWhiteSpace(req.HintExe) ? null : req.HintExe;
+    var result = await uia.LaunchApplication(req.AppName, hintExe);
+    return result.Success
+        ? Results.Ok(result)
+        : Results.NotFound(result);
+});
+
 // Perform an action on a UI element
 app.MapPost("/uigraph/action", async (HttpContext ctx) =>
 {
@@ -97,6 +114,27 @@ app.MapPost("/uigraph/action", async (HttpContext ctx) =>
         case "write_value":
             success = uia.WriteValue(req.AppName, req.Target, req.Value);
             break;
+        case "invoke_button":
+            success = uia.InvokeElement(req.AppName, req.Target);
+            break;
+        case "expand":
+            success = uia.ExpandCollapseElement(req.AppName, req.Target);
+            break;
+        case "select_item":
+            success = uia.SelectItem(req.AppName, req.Target);
+            break;
+        case "toggle":
+            success = uia.ToggleElement(req.AppName, req.Target);
+            break;
+        case "click":
+            success = uia.ClickElement(req.AppName, req.Target);
+            break;
+        case "read_text":
+        {
+            var textTarget = string.IsNullOrWhiteSpace(req.Target) ? null : req.Target;
+            var text = uia.ReadText(req.AppName, textTarget);
+            return Results.Ok(new { success = text != null, action = req.Action, app = req.AppName, text });
+        }
         default:
             return Results.BadRequest(new { error = $"Unknown action: {req.Action}" });
     }

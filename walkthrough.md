@@ -1,39 +1,44 @@
-# TELOS — Master Hackathon Submission Walkthrough
+# TELOS submission runbook
 
-This walkthrough is intentionally evidence-based. It describes what is implemented and tested in the repository today, plus what remains pending for submission polish.
+Use this on submission day.
 
-The target hackathon is the Microsoft AI Dev Days Global Hackathon. The strongest current category fit for TELOS is Best Multi-Agent System, with Best Enterprise Solution as the secondary angle.
+## 1. Push the cleaned repo
 
-## 1. Microsoft Hero Technologies (Azure Integration)
-* **Azure AI Foundry provider path**: `FoundryProvider` exists and targets Azure OpenAI-compatible endpoints under a Foundry project endpoint.
-* **Semantic Kernel-backed Microsoft path**: `SemanticKernelProvider` uses the official `semantic-kernel` SDK; token-level usage remains limited by SDK response surfaces.
-* **Local MCP-style tool server**: `services/orchestrator/mcp_server.py` exposes local tools over stdio transport for task-history style queries.
-* **Azure deployment template**: `deploy/azure-deploy.yaml` is a template with probes and secret placeholders; live deployment proof is separate.
-* **Copilot-in-VS-Code workflow artifacts**: `.github/copilot-instructions.md` and `.github/prompts/*` capture the repeatable Copilot workflow used for hardening and review.
+- Commit the Gemini-only cleanup
+- Push to the public GitHub repo
+- Open the public repo in a browser and verify the README is the Gemini version
 
-## 2. Supporting Platform Capabilities
-* **Optional Firestore backend**: `memory/firestore_store.py` is implemented as an optional memory backend alongside SQLite.
-* **Multimodal Vision path**: `VisionAgent` supports screenshot + text requests when privacy settings allow image egress.
+## 2. Verify the local demo
 
-## 3. Execution Architecture Fixes (The Forensic Gaps)
-* **High-Speed Screen Capture**: A lightweight **Go Capture Engine** (port 8085) takes ultra-fast screenshots to feed multimodal LLM inputs.
-* **Delta Pipeline**: The **Rust Delta Engine** (port 8084) handles visual diff analysis. The C# UIGraph service attempts delta calls and falls back to snapshot-only mode if delta is unavailable.
-* **Scheduler Daemon**: The Go-based cron orchestrator uses `robfig/cron/v3` for background job evaluation, enabling scheduled automation.
-* **Writer Retries**: The `WriterAgent` uses exponential backoff (1s → 2s → 4s cap) for up to 3 retry attempts before failing.
+- Start UIGraph
+- Start the screenshot engine
+- Start the orchestrator
+- Confirm `/health` and `/adk/health`
+- Run one `POST /navigate` command successfully
 
-## 4. Frontend / UX Fidelity (The Docs-Only Fixes)
-* **Web Speech API**: Users can now click the microphone icon in the Mission Control dashboard to transcribe commands effortlessly.
-* **Onboarding Flow**: A React configuration wizard overlays the system on the first boot to ensure environment keys are properly set prior to routing the jobs.
-* **Settings & Provider Switcher**: Users can switch between Azure OpenAI, Semantic Kernel, and Azure AI Foundry through the React GUI.
-* **Tauri Desktop Elements**: The system tray is fully configured and the web CSPs are correctly implemented.
+## 3. Verify the cloud deployment
 
-## 5. Known Limits Before Submission
-* Azure Container Apps deployment is template-ready but not represented here as a live deployment proof artifact.
-* MCP is implemented as a local stdio server; external MCP interoperability proof is a separate demo step.
-* Demo video and solo-entrant metadata must be finalized in submission materials.
+- Confirm Cloud Run is deployed
+- Confirm `/health` works on the Cloud Run URL
+- Confirm the Google Cloud services you used are visible: Cloud Run, Secret Manager, and Firestore
 
-## Verification
-- **Code Completeness**: All endpoints use real logic; no dummy `{"success": true}` stubs remain in production paths.
-- **Tests**: Full Python test suite: **146/146 passed** (8 E2E hero + 138 unit/integration). Go tests pass for scheduler and capture engine.
-- **Privacy**: SSE event payloads are PII-filtered before reaching the frontend. Step details and result values are sanitised via `mask_pii()`.
-- **Portability**: The `ProviderBase` abstraction keeps Azure OpenAI, Semantic Kernel, and Azure AI Foundry paths behind a consistent interface.
+## 4. Record the demo
+
+- Follow `docs/demo/HERO_DEMO.md`
+- Keep it under 4 minutes
+- Upload it as a public video
+
+## 5. Fill Devpost
+
+- Title and tagline from `docs/devpost_submission.md`
+- Description from `docs/devpost_submission.md`
+- Public GitHub repo URL
+- Public video URL
+- Category: `UI Navigator`
+
+## 6. Final checks
+
+- README matches the video
+- Submission copy is consistent with the Gemini and Google Cloud implementation
+- The repo shows Gemini, ADK, and Google Cloud clearly
+- The demo video shows real desktop actions and cloud evidence

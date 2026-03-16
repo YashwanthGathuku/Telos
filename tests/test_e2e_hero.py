@@ -44,8 +44,8 @@ class TestHeroFlowE2E:
         """The complete hero demo: copy value from one app to another."""
         planner_response = LLMResponse(
             content='[{"agent":"reader","action":"read_field","app":"Notepad","detail":"Q1 sales total"},{"agent":"writer","action":"write_cell","app":"Excel","detail":"cell B4"},{"agent":"verifier","action":"verify_write","app":"Excel","detail":"cell B4"}]',
-            provider=ProviderName.AZURE,
-            model="gpt-4o",
+            provider=ProviderName.GEMINI,
+            model="gemini-2.5-flash",
             bytes_sent=200,
             bytes_received=400,
         )
@@ -83,7 +83,7 @@ class TestHeroFlowE2E:
             # Mock provider (provider_name is sync, so use MagicMock for it)
             mock_provider = AsyncMock()
             mock_provider.complete = AsyncMock(return_value=planner_response)
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_provider.health_check = AsyncMock(return_value=True)
             mock_get_provider.return_value = mock_provider
 
@@ -146,8 +146,8 @@ class TestHeroFlowE2E:
             captured_prompts.append(request.user_prompt)
             return LLMResponse(
                 content='[{"agent":"reader","action":"read_field","app":"Notepad","detail":"total"}]',
-                provider=ProviderName.AZURE,
-                model="gpt-4o",
+                provider=ProviderName.GEMINI,
+                model="gemini-2.5-flash",
                 bytes_sent=100,
                 bytes_received=200,
             )
@@ -158,7 +158,7 @@ class TestHeroFlowE2E:
 
             mock_provider = AsyncMock()
             mock_provider.complete = capture_prompt
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_get_prov = mock_prov
             mock_get_prov.return_value = mock_provider
 
@@ -194,12 +194,12 @@ class TestHeroFlowE2E:
             mock_provider = AsyncMock()
             mock_provider.complete = AsyncMock(return_value=LLMResponse(
                 content='invalid json',
-                provider=ProviderName.AZURE,
-                model="gpt-4o",
+                provider=ProviderName.GEMINI,
+                model="gemini-2.5-flash",
                 bytes_sent=50,
                 bytes_received=30,
             ))
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_prov.return_value = mock_provider
 
             # Reader returns empty (UIGraph offline)
@@ -228,7 +228,7 @@ class TestHeroFlowE2E:
 
             mock_provider = AsyncMock()
             mock_provider.complete = AsyncMock(side_effect=Exception("Provider timeout"))
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_prov.return_value = mock_provider
 
             router = TaskRouter()
@@ -241,8 +241,8 @@ class TestHeroFlowE2E:
         """Agent-layer errors must fail the task instead of being marked completed."""
         planner_response = LLMResponse(
             content='[{"agent":"reader","action":"read_field","app":"Notepad","detail":"Q1 sales total"}]',
-            provider=ProviderName.AZURE,
-            model="gpt-4o",
+            provider=ProviderName.GEMINI,
+            model="gemini-2.5-flash",
             bytes_sent=100,
             bytes_received=200,
         )
@@ -251,7 +251,7 @@ class TestHeroFlowE2E:
              patch("services.orchestrator.router.get_provider") as mock_get_provider:
             mock_provider = AsyncMock()
             mock_provider.complete = AsyncMock(return_value=planner_response)
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_provider.health_check = AsyncMock(return_value=True)
             mock_get_provider.return_value = mock_provider
 
@@ -332,8 +332,8 @@ class TestCrossAppDataTransfer:
 
         planner_response = LLMResponse(
             content='[{"agent":"reader","action":"read_field","app":"Notepad","detail":"value"},{"agent":"writer","action":"write_cell","app":"Excel","detail":"A1"}]',
-            provider=ProviderName.AZURE,
-            model="gpt-4o",
+            provider=ProviderName.GEMINI,
+            model="gemini-2.5-flash",
             bytes_sent=100,
             bytes_received=200,
         )
@@ -345,7 +345,7 @@ class TestCrossAppDataTransfer:
 
             mock_provider = AsyncMock()
             mock_provider.complete = AsyncMock(return_value=planner_response)
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_prov.return_value = mock_provider
 
             # Reader works
@@ -386,8 +386,8 @@ class TestSSEPIIMasking:
         the step.detail visible via SSE must have PII redacted."""
         planner_response = LLMResponse(
             content='[{"agent":"reader","action":"read_field","app":"App","detail":"contact info"}]',
-            provider=ProviderName.AZURE,
-            model="gpt-4o",
+            provider=ProviderName.GEMINI,
+            model="gemini-2.5-flash",
             bytes_sent=100,
             bytes_received=200,
         )
@@ -398,7 +398,7 @@ class TestSSEPIIMasking:
 
             mock_provider = AsyncMock()
             mock_provider.complete = AsyncMock(return_value=planner_response)
-            mock_provider.provider_name = MagicMock(return_value="azure")
+            mock_provider.provider_name = MagicMock(return_value="gemini")
             mock_prov.return_value = mock_provider
 
             rc = AsyncMock()

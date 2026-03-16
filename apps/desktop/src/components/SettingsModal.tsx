@@ -2,17 +2,15 @@ import { useState, useEffect } from "react";
 import { Settings, X } from "lucide-react";
 
 export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
-  const [provider, setProvider] = useState("github_models");
   const [apiToken, setApiToken] = useState("");
   
   useEffect(() => {
-    const saved = sessionStorage.getItem("telos_provider");
-    if (saved) setProvider(saved);
+    sessionStorage.setItem("telos_provider", "gemini");
     setApiToken(sessionStorage.getItem("telos_api_token") ?? "");
   }, [isOpen]);
 
   const handleSave = () => {
-    sessionStorage.setItem("telos_provider", provider);
+    sessionStorage.setItem("telos_provider", "gemini");
     if (apiToken.trim()) {
       sessionStorage.setItem("telos_api_token", apiToken.trim());
     } else {
@@ -39,19 +37,12 @@ export default function SettingsModal({ isOpen, onClose }: { isOpen: boolean, on
 
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-mono text-telos-text-muted mb-1">AI PROVIDER</label>
-            <select
-              value={provider}
-              onChange={(e) => setProvider(e.target.value)}
-              className="w-full bg-telos-bg border border-telos-border rounded px-3 py-2 text-white font-mono focus:border-telos-accent outline-none"
-            >
-              <option value="github_models">GitHub Models (Free via PAT)</option>
-              <option value="azure">Azure OpenAI (HTTP adapter)</option>
-              <option value="azure_foundry">Azure AI Foundry</option>
-              <option value="azure_sk">Azure OpenAI (Semantic Kernel)</option>
-            </select>
+            <label className="block text-xs font-mono text-telos-text-muted mb-1">AI STACK</label>
+            <div className="w-full bg-telos-bg border border-telos-border rounded px-3 py-2 text-white font-mono">
+              Gemini + Google ADK
+            </div>
             <p className="mt-2 text-xs text-telos-text-muted">
-              Microsoft submission build surfaces only the Microsoft-backed provider paths.
+              TELOS is configured for the Gemini submission build.
             </p>
           </div>
 

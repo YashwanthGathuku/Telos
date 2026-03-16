@@ -1,0 +1,68 @@
+# TELOS Cloud Run service
+# Edit the placeholder host values before deploying if you want Cloud Run
+# to drive a live Windows desktop companion.
+
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: telos-orchestrator
+  labels:
+    cloud.googleapis.com/location: us-central1
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+        run.googleapis.com/cpu-throttling: "false"
+    spec:
+      containerConcurrency: 80
+      timeoutSeconds: 300
+      containers:
+        - image: gcr.io/PROJECT_ID/telos-orchestrator:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: TELOS_PROVIDER
+              value: gemini
+            - name: GEMINI_MODEL
+              value: gemini-2.0-flash
+            - name: GOOGLE_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: google-api-key
+                  key: latest
+            - name: GOOGLE_CLOUD_PROJECT
+              value: PROJECT_ID
+            - name: TELOS_MEMORY_BACKEND
+              value: firestore
+            - name: FIRESTORE_COLLECTION
+              value: telos_tasks
+            - name: TELOS_PRIVACY_MODE
+              value: balanced
+            - name: TELOS_ALLOW_IMAGE_EGRESS
+              value: "true"
+            - name: WINDOWS_MCP_HOST
+              value: windows-companion.example.internal
+            - name: WINDOWS_MCP_PORT
+              value: "8083"
+            - name: SCREENSHOT_ENGINE_HOST
+              value: windows-companion.example.internal
+            - name: SCREENSHOT_ENGINE_PORT
+              value: "8085"
+          resources:
+            limits:
+              cpu: "2"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            periodSeconds: 30

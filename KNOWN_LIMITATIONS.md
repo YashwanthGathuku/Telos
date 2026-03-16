@@ -1,67 +1,17 @@
-# TELOS — Known Limitations
+# TELOS known limitations
 
-## MVP Scope Constraints
+This is a hackathon build optimized for a clear demo and a clean submission story.
 
-This is a hackathon MVP. The following limitations are known and intentional.
+## Product limits
 
-### UIA Integration
+- Windows only. The execution layer depends on Windows UI Automation.
+- Desktop execution requires a live Windows session. Cloud Run cannot replace that companion.
+- UI Automation coverage varies by application. Standard Windows apps work better than custom-rendered apps.
+- Audio input is not enabled in the current ADK WebSocket build.
+- The desktop dashboard is optional for the demo. The strongest proof path is the `POST /navigate` API plus the live desktop.
 
-- **Application compatibility varies.** Windows UI Automation support differs across applications. Some apps expose rich accessible trees; others (e.g., Electron-based, custom-rendered) expose minimal or no automation elements.
-- **UIA tree depth and breadth are capped.** The UIGraph service limits traversal to depth 8 and 100 children per node to prevent hangs on deeply nested or virtualized controls.
-- **SendKeys fallback.** When the target control doesn't support the UIA ValuePattern, the writer falls back to SendKeys. This is fragile if the target field doesn't have focus.
-- **Single-monitor assumption.** The MVP has not been tested on multi-monitor setups.
+## Engineering limits
 
-### Cross-App Execution
-
-- **Keyword-based element matching.** The reader agent matches UI elements by keyword overlap with the task detail string. This works for simple cases but may fail on complex or ambiguous UIs.
-- **No undo support.** Writes are permanent. There is no rollback mechanism.
-
-### Provider Integration
-
-- **Azure and Gemini only.** The MVP supports Azure OpenAI and Google Gemini. Other providers would require implementing `ProviderBase`.
-- **No streaming responses.** Provider responses are received in full, not streamed.
-- **No token budget management.** Tasks with very long UIA trees could exceed model context limits.
-
-### Privacy
-
-- **Regex-based PII detection.** SSN, email, phone, and credit card patterns are detected via regex. Novel formats or non-US patterns may not be caught.
-- **No content-based PII classification.** The filter does not use NLP to identify semantic PII (e.g., names, addresses in free text).
-- **Screenshot egress is opt-in.** In `strict` privacy mode, VisionAgent blocks raw screenshot uploads unless `TELOS_ALLOW_IMAGE_EGRESS=true`.
-- **Egress log file is append-only.** The in-memory dashboard cache is bounded, but there is no built-in rotation for `logs/egress.jsonl`.
-
-### Scheduler
-
-- **Cron evaluates purely locally.** The Go scheduler now auto-evaluates cron timing and triggers jobs via the API over localhost.
-- **No distributed locking.** The scheduler is single-instance only.
-- **SQLite concurrency.** Under heavy concurrent writes, SQLite may serialize requests.
-
-### Desktop Shell
-
-- **Windows only.** The UIA subsystem requires Windows. macOS/Linux are not supported.
-- **Development mode tested.** The Tauri app has been tested primarily in `tauri dev` mode. Production builds (`.msi` packaging) are not validated.
-- **No themes.** Dark mode only.
-- **No i18n.** English only.
-
-### Testing
-
-- **UIGraph tests are mocked.** Real UIA tree walking requires a Windows desktop environment with target applications running. Integration tests mock the HTTP layer.
-- **No browser-based frontend tests.** React components are not tested with a DOM testing library in this MVP.
-- **Native builds need the full Windows toolchain.** Tauri/MSVC builds require Visual Studio Build Tools (`link.exe`), while GNU-target Rust tests need `dlltool.exe`.
-
-### Architecture
-
-- **C# → Rust communication is HTTP, not named pipes.** The architecture specifies named pipes for C# → Rust delta engine communication, but the MVP uses HTTP for simplicity. The pipe interface is reserved for a future iteration.
-- **Memory semantics are basic.** The SQLite memory store provides task history and key-value context. Advanced context-aware memory, RAG, or learning is deferred.
-- **No agent-to-agent negotiation.** Agents execute in a fixed pipeline (planner → reader → writer → verifier). Dynamic agent collaboration is deferred.
-
-## What Is Real
-
-- Desktop app shell and mission-control dashboard
-- Natural-language command intake and task routing
-- UIA-first structured extraction with password masking
-- Cross-app read → write → verify pipeline
-- Pre-egress PII filtering with visible privacy metrics
-- Dual-provider abstraction (Azure + Gemini) with env-var swap
-- SQLite-backed scheduler with CRUD and manual trigger
-- SSE event stream with live dashboard updates
-- 80+ automated tests covering privacy, providers, routing, bus, memory, UIGraph extraction, and e2e hero flow
+- Rust and Go native builds require a Windows machine with enough memory and paging file capacity.
+- Firestore is optional and not required for the local demo.
+- The repo still contains archival planning and prompt files from earlier development work; the current submission path is documented in `README.md` and `docs/`.

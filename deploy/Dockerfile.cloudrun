@@ -1,0 +1,32 @@
+# TELOS Orchestrator — Google Cloud Run Deployment
+# For Gemini Live Agent Challenge — UI Navigator category
+#
+# Build and deploy:
+#   gcloud builds submit --tag gcr.io/$PROJECT_ID/telos-orchestrator
+#   gcloud run deploy telos-orchestrator --image gcr.io/$PROJECT_ID/telos-orchestrator --platform managed
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python deps
+COPY services/orchestrator/requirements.txt requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy orchestrator source (including parent package init)
+COPY services/__init__.py services/__init__.py
+COPY services/orchestrator/ services/orchestrator/
+
+# Cloud Run sets PORT env var
+ENV PORT=8080
+ENV ORCHESTRATOR_HOST=0.0.0.0
+ENV ORCHESTRATOR_PORT=8080
+
+EXPOSE 8080
+
+CMD ["python", "-m", "services.orchestrator"]

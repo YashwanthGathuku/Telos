@@ -1,8 +1,5 @@
 """
-TELOS Orchestrator — shared data models.
-
-All Pydantic models used across the orchestrator for request validation,
-event emission, and inter-service contracts.
+TELOS Orchestrator shared data models.
 """
 
 from __future__ import annotations
@@ -14,8 +11,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-
-# ── Enums ────────────────────────────────────────────────────────────────
 
 class TaskStatus(str, Enum):
     PENDING = "pending"
@@ -36,17 +31,12 @@ class AgentRole(str, Enum):
 
 
 class ProviderName(str, Enum):
-    AZURE = "azure"
     GEMINI = "gemini"
-    AZURE_SK = "azure_sk"
-    AZURE_FOUNDRY = "azure_foundry"
-    GITHUB_MODELS = "github_models"
 
-
-# ── Core Models ──────────────────────────────────────────────────────────
 
 class TaskRequest(BaseModel):
     """Inbound task from the frontend command bar."""
+
     task: str = Field(..., max_length=10_000, description="Natural-language task instruction")
     context: dict[str, Any] = Field(default_factory=dict, description="Optional additional context")
 
@@ -54,6 +44,7 @@ class TaskRequest(BaseModel):
     @classmethod
     def strip_dangerous_content(cls, v: str) -> str:
         import re
+
         v = re.sub(r"<script[^>]*>.*?</script>", "", v, flags=re.IGNORECASE | re.DOTALL)
         v = re.sub(r"<[^>]+>", "", v)
         cleaned = v.strip()
@@ -62,8 +53,31 @@ class TaskRequest(BaseModel):
         return cleaned
 
 
+class TaskStep(BaseModel):
+    """A single step within a task execution."""
+
+    agent: AgentRole
+    action: str
+    status: TaskStatus = TaskStatus.PENDING
+    started_at: str | None = None
+    completed_at: str | None = None
+    detail: str = ""
+
+
+class PrivacySummary(BaseModel):
+    """Per-task privacy metrics visible on the dashboard."""
+
+    local_operations: int = 0
+    cloud_calls: int = 0
+    bytes_sent: int = 0
+    bytes_received: int = 0
+    fields_masked: int = 0
+    pii_blocked: int = 0
+
+
 class TaskRecord(BaseModel):
     """Internal representation of a task throughout its lifecycle."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     task: str
     status: TaskStatus = TaskStatus.PENDING
@@ -75,30 +89,9 @@ class TaskRecord(BaseModel):
     privacy_summary: PrivacySummary | None = None
 
 
-class TaskStep(BaseModel):
-    """A single step within a task execution."""
-    agent: AgentRole
-    action: str
-    status: TaskStatus = TaskStatus.PENDING
-    started_at: str | None = None
-    completed_at: str | None = None
-    detail: str = ""
-
-
-class PrivacySummary(BaseModel):
-    """Per-task privacy metrics visible on the dashboard."""
-    local_operations: int = 0
-    cloud_calls: int = 0
-    bytes_sent: int = 0
-    bytes_received: int = 0
-    fields_masked: int = 0
-    pii_blocked: int = 0
-
-
-# ── Provider Models ──────────────────────────────────────────────────────
-
 class LLMRequest(BaseModel):
-    """Normalized request to any LLM provider."""
+    """Normalized request to the active LLM provider."""
+
     system_prompt: str = ""
     user_prompt: str
     temperature: float = 0.2
@@ -108,7 +101,8 @@ class LLMRequest(BaseModel):
 
 
 class LLMResponse(BaseModel):
-    """Normalized response from any LLM provider."""
+    """Normalized response from the active LLM provider."""
+
     content: str
     provider: ProviderName
     model: str
@@ -117,8 +111,6 @@ class LLMResponse(BaseModel):
     bytes_sent: int = 0
     bytes_received: int = 0
 
-
-# ── Event Models ─────────────────────────────────────────────────────────
 
 class EventType(str, Enum):
     TASK_CREATED = "task_created"
@@ -133,27 +125,28 @@ class EventType(str, Enum):
 
 class TelosEvent(BaseModel):
     """SSE event pushed to the frontend."""
+
     event_type: EventType
     task_id: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
     timestamp: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
-# ── UIGraph Models ───────────────────────────────────────────────────────
-
 class UIElement(BaseModel):
     """A single UI Automation element."""
+
     automation_id: str = ""
     name: str = ""
     control_type: str = ""
     value: str = ""
     bounding_rect: dict[str, int] = Field(default_factory=dict)
-    children: list[UIElement] = Field(default_factory=list)
+    children: list["UIElement"] = Field(default_factory=list)
     is_password: bool = False
 
 
 class UISnapshot(BaseModel):
     """Snapshot of a window's accessible UI tree."""
+
     window_title: str
     process_name: str
     process_id: int
@@ -161,10 +154,9 @@ class UISnapshot(BaseModel):
     elements: list[UIElement] = Field(default_factory=list)
 
 
-# ── Scheduler Models ─────────────────────────────────────────────────────
-
 class ScheduledJob(BaseModel):
     """A repeatable scheduled task."""
+
     id: str = Field(default_factory=lambda: uuid.uuid4().hex[:12])
     name: str
     cron: str
@@ -175,6 +167,5 @@ class ScheduledJob(BaseModel):
     next_run: str | None = None
 
 
-# Resolve forward references
 TaskRecord.model_rebuild()
 UIElement.model_rebuild()

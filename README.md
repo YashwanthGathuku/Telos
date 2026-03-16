@@ -1,674 +1,294 @@
-# TELOS — Your Machine's Purpose, Automated
+# TELOS — Gemini-Powered UI Navigator for Windows
 
-## Author
+> **Gemini Live Agent Challenge — UI Navigator Category**
+>
+> Multi-agent desktop automation system that uses Gemini 2.0 Flash with dual perception (UI Automation + multimodal vision) to understand, control, and verify actions across any Windows application.
 
-**Yashwanth Gathuku**
+[![Live on Cloud Run](https://img.shields.io/badge/Cloud%20Run-Live-4285F4?logo=google-cloud)](https://telos-orchestrator-777032186668.us-central1.run.app/health)
+[![Gemini 2.0 Flash](https://img.shields.io/badge/Gemini-2.0%20Flash-8E24AA?logo=google)](https://ai.google.dev/)
+[![Google ADK](https://img.shields.io/badge/Agent%20Framework-Google%20ADK-FB8C00)](https://google.github.io/adk-docs/)
 
-## Microsoft Learn Username
+## Architecture
 
-**https://learn.microsoft.com/en-us/users/gathukuyashwanth**
+![Architecture Diagram](docs/architecture_diagram.png)
 
+TELOS has two runtime layers:
 
-> A Windows-first desktop operations platform that reads running applications through Windows UI Automation as structured state, coordinates specialized agents to execute cross-application tasks, verifies outcomes, and exposes the workflow through a mission-control dashboard.
+**☁️ Cloud Control Plane (Google Cloud Run)**
+- FastAPI orchestrator with 5 specialized agents
+- Google ADK Navigator (WebSocket live mode)
+- Gemini 2.0 Flash via google-genai SDK
+- Firestore for cloud-backed task memory
+- Secret Manager for credential storage
 
-![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![Privacy](https://img.shields.io/badge/privacy-first-green)
-![Microsoft](https://img.shields.io/badge/Microsoft-Azure%20OpenAI%20%7C%20Semantic%20Kernel%20%7C%20Foundry--ready-purple)
+**🖥️ Windows Desktop Companion (Local)**
+- C# UIGraph service — Windows UI Automation bridge
+- Go Capture Engine — screenshot service
+- Rust Delta Engine — UI snapshot diffing
+- Tauri 2 + React dashboard
 
----
+This split is intentional: Gemini reasoning runs on Cloud Run, while desktop control stays on the Windows machine that owns the target UI session.
 
-## TL;DR
+### Multi-Agent Pipeline
 
-TELOS is a privacy-first desktop AI operations system for Windows. Instead of relying only on screenshots or browser automation, it uses structured Windows UI Automation to understand running applications, plan multi-step work, execute actions across apps, verify results, and show the full control loop in a live operator dashboard.
+| Agent | Role | Perception |
+|-------|------|------------|
+| **Planner** | Decomposes NL tasks into ordered steps | Gemini LLM |
+| **Reader** | Extracts data from app UI trees | Windows UIA |
+| **Writer** | Executes clicks, keystrokes, value writes | UIGraph bridge |
+| **Verifier** | Confirms actions by re-reading targets | Delegates to Reader |
+| **Vision** | Screenshot + multimodal LLM interpretation | Gemini vision |
+| **ADK Navigator** | WebSocket-based live interaction | Google ADK |
 
-For the Microsoft hackathon submission, this repository is positioned as:
+### Dual Perception (What Makes TELOS Different)
 
-- a Windows-first multi-agent desktop operations platform
-- with Azure OpenAI, Semantic Kernel, and Azure AI Foundry-ready provider paths
-- with GitHub Copilot + VS Code workflow evidence committed in the repository
-- with Azure deployment artifacts for the cloud-hosted parts of the system
+When UI Automation can't reach an element (custom controls, canvas apps), TELOS automatically falls back to capturing a screenshot and asking Gemini 2.0 Flash to interpret the visual layout. This makes the agent robust across all Windows applications.
 
-## Quick Navigation
+### Privacy-First Design
 
-- [Problem TELOS Solves](#problem-telos-solves)
-- [What We Built](#what-we-built)
-- [Submission Alignment](#submission-alignment)
-- [Target Category Mapping](#target-category-mapping)
-- [Architecture Overview](#architecture-overview)
-- [Feature Checklist](#feature-checklist)
-- [Local Run](#local-run)
-- [Demo Readiness](#demo-readiness)
-- [Final Submission Package Checklist](#final-submission-package-checklist)
-- [Suggested Category Selection Text](#suggested-category-selection-text)
+- PII masking (SSN, email, phone, credit card) before any LLM call
+- Password fields never read or transmitted
+- Egress logging (JSONL audit trail) for every outbound API call
+- Configurable privacy modes: `strict` | `balanced`
 
-## Problem TELOS Solves
+## Google Cloud Services Used
 
-Many real enterprise workflows still happen in Windows desktop applications, not only in browsers. Existing AI assistants often depend on screenshots, OCR, or browser-only automation, which makes desktop work brittle, hard to verify, and risky for privacy-sensitive data.
+| Service | Purpose |
+|---------|---------|
+| **Cloud Run** | Orchestrator + scheduler containers |
+| **Cloud Build** | Automated Docker image builds |
+| **Secret Manager** | Gemini API key + API token storage |
+| **Firestore** | Cloud-backed task memory |
+| **Container Registry** | Docker image storage |
+| **Gemini API** | LLM inference (text + multimodal) |
 
-TELOS addresses this by combining:
+## Prerequisites
 
-- structured Windows UI Automation for desktop perception
-- specialized agents for planning, reading, writing, verification, and vision
-- privacy filtering and egress logging before outbound LLM calls
-- a mission-control dashboard that shows execution state, privacy metrics, and system health live
+- **Windows 10/11** (for desktop companion services)
+- **Python 3.12+**
+- **Go 1.21+** (for capture engine and scheduler)
+- **.NET 8.0+** (for Windows UI Automation service)
+- **Node.js 18+** (for Tauri dashboard, optional)
+- **Rust** (for delta engine, optional)
+- **Google Cloud SDK** (for cloud deployment)
 
-This makes TELOS suitable for operator workflows where reliability, observability, and privacy matter more than chat alone.
+## Quick Start (Local)
 
-## Why This Matters
-
-TELOS is built for a category of work that many AI demos skip:
-
-- desktop applications still dominate many operational workflows
-- privacy-sensitive data should not leave the machine by default
-- cross-application execution needs verification, not blind action
-- judges and reviewers need a system that is easy to understand from architecture, demo, and repo evidence
-
-## What We Built
-
-From direct repository evidence, TELOS currently includes:
-
-- a FastAPI orchestrator for task intake, routing, privacy enforcement, SSE events, and provider calls
-- a specialist-agent pipeline: Planner, Reader, Writer, Verifier, Vision
-- a Go scheduler with persistent jobs, manual triggers, and execution history
-- a C# Windows UI Automation service for structured desktop state and action execution
-- a Rust delta engine for visual diff analysis
-- a Go screenshot engine for multimodal capture
-- a Tauri + React desktop dashboard
-- SQLite-backed local memory by default, with optional Firestore backend
-- privacy filtering, password masking, and egress logging
-- Azure OpenAI, Semantic Kernel, and Azure AI Foundry-ready provider paths
-- a local MCP-style stdio server for task-history style tooling
-
-## Hackathon Positioning
-
-### Best Current Fit
-
-TELOS is best positioned as:
-
-- an AI agent application using Microsoft technologies
-- a multi-agent desktop operations platform with Azure integration
-- a secure, privacy-aware enterprise desktop automation system
-
-### Honest Claim Discipline
-
-This README is intentionally evidence-based.
-
-TELOS is **not** currently claiming:
-
-- full Azure MCP integration
-- WebMCP support
-- Azure SRE Agent integration
-- fully proven live Azure deployment from this repository alone
-- a separately proven Microsoft Agent Framework implementation beyond the Semantic Kernel-backed Microsoft path
-
-### Watch Video:
-
-**https://youtu.be/a0wsfuQ9C0w
-
-## Submission Alignment
-
-This repository is written against the official Microsoft AI Dev Days Global Hackathon materials:
-
-- https://github.com/Azure/AI-Dev-Days-Hackathon/blob/main/README.md
-- https://github.com/Azure/AI-Dev-Days-Hackathon/blob/main/OFFICIAL_RULES.md
-
-From those official materials, the key submission requirements for this hackathon are:
-
-- use one or more hero technologies: Microsoft Foundry, Microsoft Agent Framework, Azure MCP, or GitHub Copilot Agent Mode
-- deploy to Azure and leverage Azure services
-- host the project in a public GitHub repository
-- develop with VS Code or Visual Studio and enhance with GitHub Copilot
-- provide a public demo video that is less than 2 minutes long
-- provide a project description explaining what was built, what problem it solves, and which Microsoft/Azure technologies were used
-- provide an architecture diagram
-- provide team information, including Microsoft Learn usernames for participants
-- ensure the project functions as depicted in the video and description
-
-TELOS aligns with that official submission model as follows:
-
-| Requirement Area | Current Repo Status | Notes |
-|---|---|---|
-| GitHub Copilot + VS Code usage | Implemented and documented | See `.github/copilot-instructions.md` and `.github/prompts/` |
-| Azure-backed provider path | Implemented | Azure OpenAI, Semantic Kernel, and Foundry-ready paths are present |
-| Public repo evidence | Ready | Docs, setup, architecture, and hackathon mapping are committed |
-| Demo-friendly workflow | Ready | See `docs/demo/HERO_DEMO.md` |
-| Installation/testing clarity | Ready | See `docs/SETUP.md` |
-| Architecture diagram | Ready | Included in this README (Mermaid) and detailed in `ARCHITECTURE.md` |
-| Team information / Microsoft Learn usernames | Pending submission metadata | Must be filled on the submission form |
-| Azure deployment proof | Partial | Azure deployment template exists; live Azure proof should be captured separately |
-
-### Submission Requirements (Official Checklist)
-
-From the official hackathon requirements, your submission package must include all of the following:
-
-- [x] Working project repository (public GitHub repo)
-- [x] Project description with problem, solution, and technologies used
-- [ ] Public demo video under 2 minutes (YouTube/Vimeo/Facebook/Youku)
-- [x] Architecture diagram
-- [ ] Team information with Microsoft Learn username(s)
-- [ ] Testing instructions that let judges run/validate the project
-
-Important: Official rules require the project to function as shown in the video and description.
-
-## Target Category Mapping
-
-Based on the official hackathon categories, TELOS currently fits best as:
-
-- **Best Multi-Agent System**
-  - strongest current fit because the repository clearly implements a specialist multi-agent pipeline, internal A2A-style event bus, and a local MCP-style server
-- **Best Enterprise Solution**
-  - strong secondary fit because TELOS has privacy filtering, egress logging, auth controls, deployment artifacts, and a clear enterprise operations story
-- **Best Azure Integration**
-  - partial fit because Azure provider paths and Azure deployment artifacts exist, but live deployment proof should be captured for a stronger claim
-- **Best Use of Microsoft Foundry**
-  - partial fit because the Foundry-ready provider path exists, but live Foundry proof should be captured for a stronger claim
-
-TELOS is less suited to the Agentic DevOps grand-prize track because the repository is centered on desktop operations automation rather than CI/CD, SRE, and reliability engineering workflows.
-
-## Microsoft Technology Verification
-
-This section is intentionally precise.
-
-### Verified
-
-- **Azure OpenAI provider path**
-  - Implemented in `services/orchestrator/providers/azure_provider.py`
-  - Uses Azure endpoint + API key + deployment name from environment variables
-
-- **Semantic Kernel usage**
-  - `semantic-kernel` dependency is present in `services/orchestrator/requirements.txt`
-  - Implemented in `services/orchestrator/providers/semantic_kernel_provider.py`
-
-- **Azure deployment template**
-  - Present in `deploy/azure-deploy.yaml`
-  - Includes Container Apps structure, probes, secrets model, and env placeholders
-
-- **GitHub Copilot workflow artifacts**
-  - Project-specific instructions in `.github/copilot-instructions.md`
-  - Reusable prompts in `.github/prompts/`
-
-### Partially Verified
-
-- **Semantic Kernel-backed Microsoft agent path**
-  - Strongly evidenced via provider implementation
-  - The repo proves Semantic Kernel more clearly than a separate Microsoft Agent Framework layer
-
-- **Azure AI Foundry**
-  - `services/orchestrator/providers/foundry_provider.py` exists and is wired into provider selection
-  - The implementation is HTTP-based against a Foundry-compatible endpoint rather than the newer `azure-ai-projects` project-endpoint flow
-
-- **MCP**
-  - A local MCP-style stdio server is implemented in `services/orchestrator/mcp_server.py`
-  - This is not the same as proving Azure Foundry Agent Service MCP integration
-
-### Not Currently Claimed
-
-- WebMCP integration
-- Azure MCP integration as a proven live capability
-- Azure SRE Agent integration
-
-For file-level evidence, see `docs/HACKATHON_TECH_MAP.md`.
-
-## Architecture Overview
-
-TELOS is composed of six core runtime pieces:
-
-1. **Desktop Shell** — Tauri + React operator dashboard
-2. **Orchestrator** — Python FastAPI control plane and multi-agent execution engine
-3. **UIGraph Service** — C# Windows UI Automation service
-4. **Screenshot Engine** — Go screenshot service for multimodal inputs
-5. **Delta Engine** — Rust visual diff engine
-6. **Scheduler** — Go scheduler with persistent jobs and history
-
-High-level architecture:
-
-```text
-Desktop Dashboard (Tauri + React)
-        |
-        v
-  Orchestrator (FastAPI)
-   |      |       |
-   |      |       +--> Provider layer (Azure OpenAI / SK / Foundry-ready)
-   |      +----------> Scheduler (Go)
-   +-----------------> UIGraph (C#) -> Delta Engine (Rust)
-                    
-Additional capture path:
-Screenshot Engine (Go) -> VisionAgent -> Provider layer
-```
-
-Detailed architecture is in `ARCHITECTURE.md`.
-
-For the full annotated architecture diagram with component details, see [`docs/architecture_diagram.md`](docs/architecture_diagram.md).
-
-### Visual Architecture Diagram
-
-```mermaid
-flowchart LR
-  UI[Mission Control Dashboard\nTauri + React] --> ORCH[Orchestrator\nFastAPI]
-  UI --> SSE[SSE Event Stream]
-  SSE --> UI
-
-  ORCH --> PLAN[Planner Agent]
-  ORCH --> READ[Reader Agent]
-  ORCH --> WRITE[Writer Agent]
-  ORCH --> VERIFY[Verifier Agent]
-  ORCH --> VISION[Vision Agent]
-
-  ORCH --> PROVIDERS[Provider Layer\nAzure OpenAI | Semantic Kernel | Foundry-ready]
-  ORCH --> UIGRAPH[UIGraph Service\nC# UI Automation]
-  ORCH --> SCHED[Scheduler\nGo]
-  ORCH --> MEMORY[Memory\nSQLite | Firestore]
-
-  UIGRAPH --> DELTA[Delta Engine\nRust]
-  VISION --> CAPTURE[Screenshot Engine\nGo]
-  CAPTURE --> PROVIDERS
-```
-
-### Hybrid Azure Deployment Diagram
-
-```mermaid
-flowchart TB
-  subgraph Azure[Azure Environment]
-    ACA1[Container App\nOrchestrator]
-    ACA2[Container App\nScheduler]
-    AIP[Azure AI Services\nAzure OpenAI / Foundry]
-    ACA1 --> AIP
-    ACA2 --> ACA1
-  end
-
-  subgraph WindowsHost[Windows Desktop Host]
-    UIA[UIGraph\nC#]
-    CAP[Capture Engine\nGo]
-    DEL[Delta Engine\nRust]
-    DASH[Desktop Dashboard\nTauri + React]
-    UIA --> DEL
-    DASH --> ACA1
-    ACA1 -. hybrid desktop calls .-> UIA
-    ACA1 -. vision capture .-> CAP
-  end
-```
-
-## Core System Capabilities
-
-### Agents
-
-TELOS contains a real specialist-agent pipeline:
-
-- **Planner**: decomposes a task into ordered steps
-- **Reader**: reads source application state from UIGraph
-- **Writer**: performs write actions into target applications
-- **Verifier**: confirms expected results
-- **Vision**: supports image/screenshot analysis when privacy settings allow
-
-Primary files:
-
-- `services/orchestrator/router.py`
-- `services/orchestrator/agents/`
-
-### UIGraph
-
-The C# UIGraph service is a core differentiator of the project.
-
-It provides:
-
-- visible window discovery
-- structured UI tree extraction
-- password masking
-- window focus control
-- UI action execution through UIAutomation and fallback SendKeys
-
-Primary files:
-
-- `uigraph/windows/Program.cs`
-- `uigraph/windows/Services/UIAutomationService.cs`
-
-### Scheduler
-
-The scheduler is implemented as a real Go service, not a placeholder.
-
-It provides:
-
-- persistent scheduled jobs
-- manual trigger endpoint
-- cron validation
-- run history storage
-- orchestrator forwarding
-
-Primary file:
-
-- `services/scheduler/main.go`
-
-### Privacy and Security
-
-TELOS includes real privacy controls:
-
-- password masking for UIA-extracted password-like fields
-- PII filtering before LLM egress
-- egress logging with destination and byte counts
-- API token support
-- rate limiting and CORS hardening
-
-Primary files:
-
-- `services/orchestrator/privacy/filter.py`
-- `services/orchestrator/privacy/egress.py`
-- `services/orchestrator/middleware/auth.py`
-- `services/orchestrator/middleware/rate_limit.py`
-
-### Memory
-
-TELOS implements real persistence:
-
-- default memory backend: SQLite
-- optional backend: Firestore
-
-Primary files:
-
-- `services/orchestrator/memory/store.py`
-- `services/orchestrator/memory/firestore_store.py`
-
-## Feature Checklist
-
-### Implemented
-
-- [x] FastAPI orchestrator
-- [x] Planner / Reader / Writer / Verifier / Vision agents
-- [x] Internal A2A-style async event bus
-- [x] SSE event stream to frontend
-- [x] C# Windows UI Automation service
-- [x] Go screenshot engine
-- [x] Rust delta engine
-- [x] Go scheduler with jobs, trigger, and history
-- [x] Tauri + React dashboard
-- [x] Privacy filtering and egress logging
-- [x] Azure OpenAI provider path
-- [x] Semantic Kernel provider path
-- [x] Azure AI Foundry-ready provider path
-- [x] Local MCP-style stdio server
-- [x] Local SQLite-backed persistence
-- [x] 146 Python tests passing in the verified hardening pass
-
-### Partially Implemented or Partially Proven
-
-- [~] Azure Container Apps deployment: template-ready, live deployment proof separate
-- [~] Azure AI Foundry: wired and documented, but live Foundry proof should be captured separately
-- [~] MCP interoperability: local server exists, live external MCP client proof is separate
-- [~] Firestore backend: implemented, but requires external cloud configuration
-- [~] Multimodal Azure AI story: implemented in code path, depends on privacy settings and live provider setup for demo
-
-### Not Implemented or Not Claimed
-
-- [ ] WebMCP transport
-- [ ] Azure SRE Agent integration
-- [ ] Fully cloud-only replacement for the Windows desktop automation stack
-
-## GitHub Copilot + VS Code Usage
-
-For the Microsoft submission, Copilot usage is a real part of the repo evidence, not just a claim.
-
-Committed evidence includes:
-
-- `.github/copilot-instructions.md`
-  - project-specific Copilot guidance for privacy, Windows-first development, and polyglot consistency
-- `.github/prompts/hackathon-review.prompt.md`
-  - review-oriented prompt asset for hackathon readiness
-- `.github/prompts/local-run-hardening.prompt.md`
-  - local-run validation prompt asset
-- `.github/prompts/readme-judge-ready.prompt.md`
-  - judge-facing documentation refinement prompt asset
-
-Copilot-assisted work reflected in the repo includes:
-
-- security/privacy hardening
-- cross-service env-var and port consistency cleanup
-- test repair and regression verification
-- hackathon-tech mapping and README truth-tightening
-
-## Documentation Map
-
-Use these files depending on what you need:
-
-| Document | Purpose |
-|---|---|
-| `docs/SETUP.md` | canonical setup and troubleshooting guide |
-| `ARCHITECTURE.md` | detailed subsystem architecture |
-| `docs/HACKATHON_TECH_MAP.md` | file-level technology and category mapping |
-| `docs/demo/HERO_DEMO.md` | demo walkthrough and talking points |
-| `walkthrough.md` | concise submission-oriented architecture narrative |
-| `docs/PENDING.md` | honest list of remaining gaps and post-submission work |
-
-## Local Run
-
-### Platform Assumptions
-
-Full TELOS desktop functionality currently requires:
-
-- Windows 10/11
-- Node.js 18+
-- Python 3.11+
-- Go 1.22+
-- .NET 8 SDK
-- Rust with Windows MSVC target
-- Visual Studio Build Tools / MSVC
-
-### Required Environment Setup
-
-1. Copy `.env.example` to `.env`
-2. Choose one Microsoft provider path
-3. Fill in the required credentials
-4. For screenshot / vision demos, set:
-   - `TELOS_PRIVACY_MODE=balanced`
-   - `TELOS_ALLOW_IMAGE_EGRESS=true`
-
-5. Never commit `.env` or personal access tokens to GitHub
-
-### Provider Paths For Demo and Submission
-
-Fast local smoke-test path (cost-controlled):
-
-- `TELOS_PROVIDER=github_models`
-
-Submission evidence paths (Microsoft/Azure-aligned):
-
-- `TELOS_PROVIDER=azure`
-- `TELOS_PROVIDER=azure_sk`
-- `TELOS_PROVIDER=azure_foundry`
-
-Use GitHub Models for quick local validation, but keep Azure-backed provider and deployment evidence in the submission narrative.
-
-### Startup Order
-
-1. UIGraph
-2. Delta Engine
-3. Screenshot Engine
-4. Scheduler
-5. Orchestrator
-6. Desktop app
-
-You can also use:
+### 1. Clone and configure
 
 ```powershell
-.\scripts\start-all.ps1
+git clone https://github.com/YOUR_USERNAME/Telos.git
+cd Telos
+Copy-Item .env.example .env
 ```
 
-### Health Checks
+Edit `.env` with your values:
 
-- Orchestrator: `GET /health`
-- Orchestrator readiness: `GET /ready`
-- System snapshot for dashboard: `GET /system/state`
-- Scheduler: `GET /health`
-- UIGraph: `GET /health`
-- Delta Engine: `GET /health`
-- Screenshot Engine: `GET /health`
-
-The combined dashboard status endpoint is:
-
-```text
-/system/state
+```env
+TELOS_PROVIDER=gemini
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-2.0-flash
+TELOS_PRIVACY_MODE=balanced
+TELOS_ALLOW_IMAGE_EGRESS=true
+TELOS_MEMORY_BACKEND=sqlite
 ```
 
-See `docs/SETUP.md` for full commands.
+Get a Gemini API key at: https://aistudio.google.com/app/apikey
 
-## Demo Readiness
+### 2. Install Python dependencies
 
-The current strongest demo story is:
+```powershell
+python -m venv .venv
+.\.venv\Scripts\pip install -r services\orchestrator\requirements.txt
+```
 
-- show the dashboard and system health
-- show UIGraph reading a real desktop app via structured UI Automation
-- submit a natural-language task
-- show Planner -> Reader -> Writer -> Verifier progression
-- show privacy and egress metrics live
-- optionally show Scheduler creating and triggering repeatable jobs
+### 3. Start Windows companion services
 
-Demo guide:
+**Terminal 1 — UI Automation bridge:**
+```powershell
+cd uigraph\windows
+dotnet run
+# Listening on http://localhost:8083
+```
 
-- `docs/demo/HERO_DEMO.md`
+**Terminal 2 — Screenshot engine:**
+```powershell
+cd services\capture_engine
+go run main.go
+# Listening on http://localhost:8085
+```
 
-## Final Submission Package Checklist
+**Terminal 3 — Scheduler (optional):**
+```powershell
+cd services\scheduler
+go run main.go
+# Listening on http://localhost:8081
+```
 
-The official Azure AI Dev Days materials require a submission package that is coherent, public, and runnable as described. For TELOS, the final package should include:
+### 4. Start the orchestrator
 
-- [x] Updated README with problem statement, implementation evidence, and run guidance
-- [x] Architecture explanation in the repository
-- [x] Visual architecture diagram in the README
-- [x] Public GitHub repository
-- [ ] Public demo video under 2 minutes
-- [ ] Submission-form project pitch describing problem, solution, and Microsoft technologies used
-- [ ] Microsoft Learn username(s) for all participant(s)
-- [ ] Azure deployment explanation, even if the runtime is hybrid
-- [ ] Category selection text aligned to the official categories
-- [ ] Confirmation that the project functions exactly as shown in the video
-- [ ] Testing instructions included in submission text (link to `docs/SETUP.md`)
+```powershell
+.\.venv\Scripts\python.exe -m services.orchestrator
+# TELOS Orchestrator starting on 127.0.0.1:8080
+```
 
-### Submission Safety Checks
+### 5. Start the dashboard (optional)
 
-- Do not include copyrighted music in the demo video.
-- Avoid unnecessary third-party trademarks unless they are essential to the demo.
-- Keep the recorded workflow consistent with the documented setup and actual runtime behavior.
-- If using third-party applications in the demo, ensure you are authorized to show them and that the workflow is stable on your machine.
+```powershell
+cd apps\desktop
+npm install
+npm run tauri -- dev
+# Opens Tauri window on http://localhost:1420
+```
 
-## Suggested Category Selection Text
+## Verify Everything Works
 
-### Primary Category
+```powershell
+# Health checks
+Invoke-RestMethod http://localhost:8080/health       # Orchestrator
+Invoke-RestMethod http://localhost:8080/adk/health   # ADK Navigator
+Invoke-RestMethod http://localhost:8083/health       # Windows MCP
+Invoke-RestMethod http://localhost:8085/health       # Capture Engine
+```
 
-**Best Multi-Agent System**
+### Run the ADK Navigator
 
-Suggested justification:
+```powershell
+# Single command execution
+Invoke-RestMethod `
+  -Method Post `
+  -Uri http://localhost:8080/navigate `
+  -ContentType application/json `
+  -Body '{"task":"Open Notepad and type Hello Gemini"}'
 
-> TELOS is a Windows-first multi-agent desktop operations platform that coordinates specialized Planner, Reader, Writer, Verifier, and Vision agents over a shared orchestration layer, internal A2A-style event bus, and local MCP-style task tooling. Its core innovation is combining structured Windows UI Automation with agent planning, action execution, verification, and operator-visible observability.
+# Stream tool activity in real-time
+curl "http://localhost:8080/navigate/stream?message=Open+Calculator+and+compute+15*23"
+```
 
-### Secondary Category
+### WebSocket Live Mode
 
-**Best Enterprise Solution**
+Connect to `ws://localhost:8080/adk/live` and send:
+```json
+{"type": "text", "message": "Open Notepad and type Hello from TELOS"}
+```
 
-Suggested justification:
+## Google Cloud Deployment
 
-> TELOS is designed for privacy-sensitive enterprise workflows where desktop applications still dominate real operational work. The system includes PII filtering, password masking, egress logging, API auth controls, hybrid Azure deployment artifacts, and a mission-control dashboard that makes execution and privacy state visible to operators.
+### Automated deployment (recommended)
 
-### Conditional Category
+```powershell
+# Authenticate
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
 
-**Best Azure Integration**
+# One-command deploy
+bash ./deploy/deploy-gcloud.sh YOUR_PROJECT_ID
+```
 
-Use this only if you can show live Azure-backed execution and explain the hybrid deployment clearly.
+The script automatically:
+1. Enables required GCP APIs
+2. Builds the Docker image via Cloud Build
+3. Deploys to Cloud Run with secrets injection
+4. Prints the live service URL
 
-Suggested justification:
+### Manual deployment
 
-> TELOS integrates Azure-backed model provider paths through Azure OpenAI and Semantic Kernel, and includes Azure Container Apps deployment artifacts for the cloud-hosted orchestration layer. The desktop automation stack remains Windows-hosted, making the overall architecture a practical hybrid Azure deployment model.
+```powershell
+# 1. Enable APIs
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com `
+  secretmanager.googleapis.com firestore.googleapis.com `
+  artifactregistry.googleapis.com aiplatform.googleapis.com
 
-### Conditional Category
+# 2. Create Firestore database
+gcloud firestore databases create --location=us-central1
 
-**Best Use of Microsoft Foundry**
+# 3. Store secrets
+echo "YOUR_GEMINI_KEY" | gcloud secrets create telos-gemini-api-key --data-file=-
 
-Use this only if you can run and record the Foundry path live.
+# 4. Build container
+gcloud builds submit --config cloudbuild.yaml --timeout=900s
 
-Suggested justification:
+# 5. Deploy to Cloud Run
+gcloud run deploy telos-orchestrator `
+  --image gcr.io/YOUR_PROJECT_ID/telos-orchestrator:latest `
+  --platform managed --region us-central1 `
+  --allow-unauthenticated `
+  --set-secrets "GEMINI_API_KEY=telos-gemini-api-key:latest" `
+  --set-env-vars "TELOS_PROVIDER=gemini,GEMINI_MODEL=gemini-2.0-flash,TELOS_MEMORY_BACKEND=firestore"
+```
 
-> TELOS includes an Azure AI Foundry-ready provider path that routes desktop-operation tasks through a Foundry-compatible endpoint while preserving the same multi-agent orchestration and privacy-aware control flow used by the rest of the platform.
+### Live deployment
 
-## Azure Deployment Model
+- **Health**: https://telos-orchestrator-777032186668.us-central1.run.app/health
+- **ADK Agent**: https://telos-orchestrator-777032186668.us-central1.run.app/adk/health
 
-TELOS currently includes an Azure Container Apps deployment template in `deploy/azure-deploy.yaml`.
+## Project Structure
 
-### What Is Implemented
+```
+Telos/
+├── services/
+│   ├── orchestrator/          # Python FastAPI orchestrator
+│   │   ├── agents/            # Planner, Reader, Writer, Verifier, Vision, ADK
+│   │   ├── providers/         # Gemini, Azure, GitHub Models adapters
+│   │   ├── privacy/           # PII filter, egress logger
+│   │   ├── memory/            # SQLite + Firestore stores
+│   │   ├── bus/               # A2A async event bus
+│   │   ├── middleware/        # Auth, rate limiting
+│   │   └── app.py             # FastAPI application
+│   ├── capture_engine/        # Go screenshot service
+│   └── scheduler/             # Go cron scheduler
+├── uigraph/
+│   ├── windows/               # C# Windows UI Automation bridge
+│   └── rust_engine/           # Rust delta engine (Axum)
+├── apps/
+│   └── desktop/               # Tauri 2 + React dashboard
+├── deploy/
+│   ├── Dockerfile.cloudrun    # Cloud Run container
+│   ├── deploy-gcloud.sh       # Automated GCP deployment
+│   └── docker-compose.yml     # Local multi-service setup
+├── docs/
+│   ├── architecture.md        # Mermaid diagram + data flow
+│   ├── devpost_submission.md  # Devpost submission copy
+│   └── blog_post.md           # Blog post for bonus points
+└── cloudbuild.yaml            # Cloud Build configuration
+```
 
-- container app structure for orchestrator and scheduler
-- secret placeholders
-- environment variable wiring
-- liveness and readiness probes
+## API Reference
 
-### Important Deployment Note
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Liveness check |
+| `/ready` | GET | Readiness (memory + provider) |
+| `/task` | POST | Submit natural language task |
+| `/task/{id}` | GET | Get task status |
+| `/tasks` | GET | List active tasks |
+| `/navigate` | POST | Execute via ADK navigator |
+| `/navigate/stream` | GET | SSE stream for navigator events |
+| `/adk/live` | WS | WebSocket live agent session |
+| `/adk/health` | GET | ADK agent health |
+| `/events` | GET | SSE event stream (dashboard) |
+| `/system/state` | GET | Full system health snapshot |
+| `/models` | GET | Available Gemini models |
+| `/privacy/summary` | GET | Privacy metrics |
+| `/privacy/egress` | GET | Egress audit records |
+| `/history` | GET | Task history |
 
-TELOS is currently a **hybrid Azure architecture**:
+## Tech Stack
 
-- cloud components: orchestrator, scheduler
-- Windows-host components: UIGraph, screenshot engine, delta engine
-
-This means the Azure deployment template should be understood as:
-
-- Azure-ready for cloud services
-- hybrid for full desktop automation
-- not yet proven as a full cloud-only desktop replacement
-
-## Evidence Matrix
-
-| Claim | Status | Evidence |
-|---|---|---|
-| Real specialist-agent pipeline | VERIFIED | `services/orchestrator/router.py`, `services/orchestrator/agents/` |
-| Azure OpenAI provider path | VERIFIED | `services/orchestrator/providers/azure_provider.py` |
-| Semantic Kernel usage | VERIFIED | `services/orchestrator/providers/semantic_kernel_provider.py`, `services/orchestrator/requirements.txt` |
-| Semantic Kernel-backed Microsoft path | VERIFIED | provider exists and is wired into runtime selection |
-| Azure AI Foundry-ready path | PARTIALLY VERIFIED | `services/orchestrator/providers/foundry_provider.py` |
-| Local MCP-style server | VERIFIED | `services/orchestrator/mcp_server.py` |
-| Azure MCP integration | NOT CLAIMED AS VERIFIED | not proven as a live Azure-linked MCP flow |
-| WebMCP | NOT VERIFIED | no implementation evidence in repo |
-| SQLite local memory | VERIFIED | `services/orchestrator/memory/store.py` |
-| Firestore memory backend | PARTIALLY VERIFIED | implemented, external cloud setup required |
-| Azure Container Apps template | VERIFIED | `deploy/azure-deploy.yaml` |
-| Live Azure deployment proof | NOT VERIFIED | separate artifact needed |
-| Copilot + VS Code workflow evidence | VERIFIED | `.github/copilot-instructions.md`, `.github/prompts/` |
-
-## Limitations
-
-- UIGraph integration requires target applications to expose usable UIA surfaces
-- some Electron or highly custom-rendered applications can be less reliable for write operations than standard Windows controls
-- the Vision path is gated by privacy settings and provider configuration
-- the Azure deployment story is hybrid rather than fully cloud-native for the Windows automation stack
-- Semantic Kernel usage metrics are limited by SDK response surfaces compared with raw HTTP provider responses
-
-## Repository Status
-
-Recent hardening work verified:
-
-- SSE PII leakage fixed
-- CORS tightened
-- token handling improved in the desktop app
-- screenshot and delta engine port conflicts resolved
-- writer retry backoff corrected
-- egress logging added to reader/writer flows
-- setup and hackathon docs corrected to match live code
-- targeted verification and full-suite evidence recorded during the remediation pass
-
-## License and IP Hygiene
-
-- License: MIT (`LICENSE`)
-- Third-party notice: `NOTICE.md`
-
-For submission safety:
-
-- keep demo video free of unlicensed music
-- avoid unnecessary third-party trademarks in the video unless needed for the demo
-- ensure any assets used in screenshots or recordings are authorized for use
-
-## Where To Go Next
-
-- To run the project: `docs/SETUP.md`
-- To understand the architecture: `ARCHITECTURE.md`
-- To map claims to files: `docs/HACKATHON_TECH_MAP.md`
-- To prepare the demo: `docs/demo/HERO_DEMO.md`
-- To review remaining gaps: `docs/PENDING.md`
-
-
+| Component | Technology |
+|-----------|-----------|
+| LLM | Gemini 2.0 Flash (google-genai SDK) |
+| Agent Framework | Google ADK |
+| Backend | Python 3.12, FastAPI, uvicorn |
+| Frontend | Tauri 2, React, Zustand, Vite |
+| Desktop Services | Go, Rust (Axum), C# (.NET) |
+| Cloud | Google Cloud Run, Firestore, Secret Manager, Cloud Build |
+| Deployment | Docker, Infrastructure-as-Code |
 
 ## License
 
-MIT — see `LICENSE`
+MIT
+
+---
+
+*Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) — UI Navigator category*

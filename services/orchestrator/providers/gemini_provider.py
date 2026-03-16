@@ -24,7 +24,8 @@ class GeminiProvider(ProviderBase):
 
     def __init__(self) -> None:
         s = get_settings()
-        self._api_key = s.gemini_api_key
+        # Prefer GEMINI_API_KEY, fall back to GOOGLE_API_KEY (used by ADK)
+        self._api_key = s.gemini_api_key or s.google_api_key
         self._model = s.gemini_model
         self._client: genai.Client | None = None
 

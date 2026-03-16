@@ -88,3 +88,34 @@ public sealed class ActionRequest
     [JsonPropertyName("value")]
     public string Value { get; set; } = "";
 }
+
+/// <summary>
+/// Request to launch an application by friendly name.
+/// </summary>
+public sealed class LaunchRequest
+{
+    [JsonPropertyName("app_name")]
+    public string AppName { get; set; } = "";
+
+    /// <summary>Optional direct path to the executable (skips discovery).</summary>
+    [JsonPropertyName("hint_exe")]
+    public string HintExe { get; set; } = "";
+}
+
+/// <summary>
+/// Result returned from an application launch attempt.
+/// </summary>
+public sealed class LaunchResult
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("already_running")]
+    public bool AlreadyRunning { get; set; }
+
+    [JsonPropertyName("launch_method")]
+    public string LaunchMethod { get; set; } = "";
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = "";
+}
