@@ -2,6 +2,8 @@
 
 This walkthrough is intentionally evidence-based. It describes what is implemented and tested in the repository today, plus what remains pending for submission polish.
 
+The target hackathon is the Microsoft AI Dev Days Global Hackathon. The strongest current category fit for TELOS is Best Multi-Agent System, with Best Enterprise Solution as the secondary angle.
+
 ## 1. Microsoft Hero Technologies (Azure Integration)
 * **Azure AI Foundry provider path**: `FoundryProvider` exists and targets Azure OpenAI-compatible endpoints under a Foundry project endpoint.
 * **Semantic Kernel-backed Microsoft path**: `SemanticKernelProvider` uses the official `semantic-kernel` SDK; token-level usage remains limited by SDK response surfaces.

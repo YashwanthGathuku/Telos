@@ -4,6 +4,8 @@
 
 The hero demo showcases TELOS's core differentiator: reading desktop applications via Windows UI Automation (not screenshots), coordinating specialist agents, and displaying live execution state in a privacy-visible mission control dashboard.
 
+For the Microsoft AI Dev Days submission, record the final video as a public demo under 2 minutes and ensure the workflow shown matches the documented setup exactly.
+
 ## Demo Scenario
 
 **Task:** "Copy the Q1 sales total from QuickBooks into Excel cell B4"

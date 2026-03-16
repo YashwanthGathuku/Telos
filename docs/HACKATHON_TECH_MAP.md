@@ -1,6 +1,11 @@
-# TELOS — Microsoft AI Dev Day Hackathon Technology Mapping
+# TELOS — Microsoft AI Dev Days Hackathon Technology Mapping
 
-This document maps TELOS features to Microsoft AI Dev Day Hackathon categories and technologies, with precise file locations so judges can verify each claim.
+This document maps TELOS features to the official Microsoft AI Dev Days Global Hackathon categories and hero technologies, with precise file locations so judges can verify each claim.
+
+Official sources:
+
+- https://github.com/Azure/AI-Dev-Days-Hackathon/blob/main/README.md
+- https://github.com/Azure/AI-Dev-Days-Hackathon/blob/main/OFFICIAL_RULES.md
 
 ---
 
@@ -63,23 +68,27 @@ This document maps TELOS features to Microsoft AI Dev Day Hackathon categories a
 
 ---
 
-## Hackathon Category Fit
+## Official Category Strategy
 
-### Primary: AI Agent application with Semantic Kernel-backed Microsoft path
-- Real specialist agent pipeline (not a single-prompt chatbot)
-- Semantic Kernel + Azure OpenAI backend
-- Multi-step task decomposition with verification
+### Primary: Best Multi-Agent System
+- Real 5-agent pipeline: Planner, Reader, Writer, Verifier, Vision
+- Internal A2A-style event bus for coordination
+- Local MCP-style server for tool-based task inspection
+- Strongest direct alignment to the official category wording
 
-### Secondary: Multi-Agent application with provider-switchable routing
-- 5 distinct agent roles with different capabilities
-- Dynamic model routing via `ProviderBase` abstraction
-- Per-request provider switching via HTTP header
-
-### Tertiary: Secure Enterprise AI App
+### Secondary: Best Enterprise Solution
 - Privacy-first architecture with PII filtering
 - Egress logging and audit trail
-- Token-based authentication on all routes
-- CORS restricted to known origins
+- Token-based authentication and rate limiting
+- Hybrid Azure deployment story for enterprise operations
+
+### Conditional: Best Azure Integration
+- Azure provider paths and deployment template are implemented
+- Should only be emphasized if live Azure proof is available in the submission package
+
+### Conditional: Best Use of Microsoft Foundry
+- Foundry-ready provider path exists
+- Should only be emphasized if the Foundry path is demonstrated live in the video
 
 ---
 
